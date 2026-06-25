@@ -198,6 +198,14 @@
 
   .mini { display: flex; gap: 6px; min-width: 0; }
   .mini .tbtn { flex: 1; text-align: center; }
+  .density-row input[type=range] { flex: 1 1 110px; }
+  .stepper { display: inline-flex; gap: 4px; flex: 0 0 auto; }
+  .stepbtn {
+    width: 30px; height: 30px; padding: 0; border-radius: 8px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 18px; line-height: 1; font-weight: 700;
+    touch-action: manipulation; user-select: none;
+  }
 
   .jogset { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-dim); white-space: nowrap; }
   .jogset input[type=range] { width: 78px; }
@@ -234,6 +242,11 @@
     .ptime { min-width:68px; }
     .row { gap: 8px; }
     .row label { max-width: 34%; white-space: normal; }
+    .density-row { gap: 6px; }
+    .density-row label { flex: 0 0 46px; max-width: none; }
+    .density-row .val { min-width: 42px; }
+    .density-row input[type=range] { flex: 1 1 80px; width: auto; }
+    .stepbtn { width: 28px; height: 28px; }
     input[type=range] { width: clamp(120px, 48vw, 240px); flex-basis: 120px; }
     .presets { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   }
@@ -300,18 +313,22 @@
 
     <div class="group">
       <h3>밀도</h3>
-      <div class="row"><label class="pan-dot">P-PNT</label>
+      <div class="row density-row"><label class="pan-dot">P-PNT</label>
         <input type="range" id="panDensity" min="0.2" max="1" step="0.1" value="0.4" />
-        <span class="val" id="panDensityVal">0.4/s</span></div>
-      <div class="row"><label class="tilt-dot">T-PNT</label>
+        <span class="val" id="panDensityVal">0.4/s</span>
+        <span class="stepper density-stepper" data-target="panDensity"><button class="tbtn stepbtn" data-step="-0.1" aria-label="P-PNT 밀도 0.1 감소">−</button><button class="tbtn stepbtn" data-step="0.1" aria-label="P-PNT 밀도 0.1 증가">+</button></span></div>
+      <div class="row density-row"><label class="tilt-dot">T-PNT</label>
         <input type="range" id="tiltDensity" min="0.2" max="1" step="0.1" value="0.4" />
-        <span class="val" id="tiltDensityVal">0.4/s</span></div>
-      <div class="row"><label class="zoom-dot">Z-PNT</label>
+        <span class="val" id="tiltDensityVal">0.4/s</span>
+        <span class="stepper density-stepper" data-target="tiltDensity"><button class="tbtn stepbtn" data-step="-0.1" aria-label="T-PNT 밀도 0.1 감소">−</button><button class="tbtn stepbtn" data-step="0.1" aria-label="T-PNT 밀도 0.1 증가">+</button></span></div>
+      <div class="row density-row"><label class="zoom-dot">Z-PNT</label>
         <input type="range" id="zoomDensity" min="0.2" max="1" step="0.1" value="0.4" />
-        <span class="val" id="zoomDensityVal">0.4/s</span></div>
-      <div class="row"><label class="focus-dot">F-PNT</label>
+        <span class="val" id="zoomDensityVal">0.4/s</span>
+        <span class="stepper density-stepper" data-target="zoomDensity"><button class="tbtn stepbtn" data-step="-0.1" aria-label="Z-PNT 밀도 0.1 감소">−</button><button class="tbtn stepbtn" data-step="0.1" aria-label="Z-PNT 밀도 0.1 증가">+</button></span></div>
+      <div class="row density-row"><label class="focus-dot">F-PNT</label>
         <input type="range" id="focusDensity" min="0.2" max="1" step="0.1" value="0.4" />
-        <span class="val" id="focusDensityVal">0.4/s</span></div>
+        <span class="val" id="focusDensityVal">0.4/s</span>
+        <span class="stepper density-stepper" data-target="focusDensity"><button class="tbtn stepbtn" data-step="-0.1" aria-label="F-PNT 밀도 0.1 감소">−</button><button class="tbtn stepbtn" data-step="0.1" aria-label="F-PNT 밀도 0.1 증가">+</button></span></div>
       <div class="mini">
         <button class="tbtn" id="regenBtn">RAW 재생성</button>
         <button class="tbtn" id="resampleBtn">포인트 재생성</button>
@@ -1341,6 +1358,18 @@ bindDensity("panDensity","pan");
 bindDensity("tiltDensity","tilt");
 bindDensity("zoomDensity","zoom");
 bindDensity("focusDensity","focus");
+document.querySelectorAll(".density-stepper .stepbtn").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    btn.blur();
+    const targetId = btn.closest(".density-stepper")?.dataset.target;
+    const el = targetId ? $(targetId) : null;
+    if(!el) return;
+    const step = +btn.dataset.step || 0;
+    const next = clampDensity(Math.round((+el.value + step) * 10) / 10);
+    el.value = next.toFixed(1);
+    el.dispatchEvent(new Event("input", { bubbles:true }));
+  });
+});
 $("csvFps").addEventListener("input", e=>{ $("csvFpsVal").textContent=csvFps()+"fps"; });
 // 포인트 재생성: 현재 경로 형상(폴리라인)을 유지한 채 지정 밀도로 리샘플
 function resamplePoints(){
