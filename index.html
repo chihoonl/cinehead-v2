@@ -24,7 +24,7 @@
     --danger: #f87171;
     --ok: #22c55e;
   }
-  * { box-sizing: border-box; }
+  * { box-sizing: border-box; min-width: 0; }
   html, body { height: 100%; margin: 0; }
   body {
     background: var(--bg);
@@ -58,7 +58,7 @@
   .hlegend span { display: inline-flex; align-items: center; }
   .hlegend i { display: inline-block; width: 15px; height: 3px; margin-right: 6px; border-radius: 2px; }
 
-  main { flex: 1; display: flex; min-height: 0; }
+  main { flex: 1; display: flex; min-height: 0; overflow: hidden; }
 
   .graph-wrap { flex: 1; position: relative; min-width: 0; background: #0a0e13; }
   canvas { display: block; width: 100%; height: 100%; cursor: crosshair; touch-action:none; }
@@ -95,13 +95,26 @@
   .subh { font-size: 11px; color: var(--text-dim); font-weight: 600; letter-spacing: .3px; margin: 12px 0 5px; }
   .dimmed { opacity: .42; pointer-events: none; }
   input[type=range]:disabled { opacity: .4; cursor: not-allowed; }
-  .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 9px 0; }
-  .row label { color: var(--text); font-size: 12.5px; }
-  .row .val { color: var(--accent); font-variant-numeric: tabular-nums; font-size: 12px; min-width: 56px; text-align: right; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 9px 0; min-width: 0; }
+  .row label { color: var(--text); font-size: 12.5px; flex: 0 0 auto; }
+  .row .val { color: var(--accent); font-variant-numeric: tabular-nums; font-size: 12px; min-width: 56px; text-align: right; flex: 0 0 auto; }
 
-  input[type=range] { -webkit-appearance: none; appearance: none; width: 140px; height: 4px; background: #2a3848; border-radius: 4px; outline: none; }
-  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--accent); cursor: pointer; border: 2px solid #0b0f14; }
-  input[type=number] { width: 64px; background: #0d141c; border: 1px solid var(--line); color: var(--text); border-radius: 6px; padding: 4px 6px; font-size: 12px; }
+  input[type=range] {
+    -webkit-appearance: none; appearance: none;
+    width: clamp(96px, 45%, 170px); max-width: 100%; height: 24px;
+    background: transparent; outline: none; touch-action: pan-y;
+  }
+  input[type=range]::-webkit-slider-runnable-track { height: 6px; background: #2a3848; border-radius: 999px; }
+  input[type=range]::-moz-range-track { height: 6px; background: #2a3848; border-radius: 999px; }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 22px; height: 22px; margin-top: -8px;
+    border-radius: 50%; background: var(--accent); cursor: pointer; border: 2px solid #0b0f14;
+    box-shadow: 0 0 0 4px rgba(56,189,248,.12);
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 22px; height: 22px; border-radius: 50%; background: var(--accent);
+    cursor: pointer; border: 2px solid #0b0f14; box-shadow: 0 0 0 4px rgba(56,189,248,.12);
+  }
   input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; }
 
   .pan-dot { color: var(--pan); } .tilt-dot { color: var(--tilt); }
@@ -121,6 +134,7 @@
   .tbtn {
     border: 1px solid var(--line); background: #0d141c; color: var(--text-dim);
     border-radius: 7px; padding: 6px 10px; font-size: 12px; cursor: pointer; transition: all .15s;
+    min-width: 0;
   }
   .tbtn:hover { border-color: var(--accent); color: var(--text); }
   .tbtn.on { background: rgba(56,189,248,.15); border-color: var(--accent); color: var(--accent); }
@@ -151,9 +165,9 @@
   .btn-main.edit { background: var(--tilt); color: #1a1000; }
   .btn-confirm { background: var(--accent); color: #041420; }
 
-  .presets { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; }
+  .presets { display: grid; grid-template-columns: repeat(auto-fit, minmax(44px, 1fr)); gap: 7px; width: 100%; }
   .preset {
-    aspect-ratio: 1.4; border: 1px solid var(--line); background: #0d141c; color: var(--text-dim);
+    min-height: 34px; aspect-ratio: 1.4; border: 1px solid var(--line); background: #0d141c; color: var(--text-dim);
     border-radius: 8px; font-size: 12px; cursor: default; display: flex; align-items: center; justify-content: center;
     position: relative; transition: all .2s;
   }
@@ -182,27 +196,32 @@
   .pfill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--accent); border-radius: 6px; }
   .ptime { color: var(--text-dim); font-size: 11px; font-variant-numeric: tabular-nums; min-width: 78px; text-align: right; }
 
-  .mini { display: flex; gap: 6px; }
+  .mini { display: flex; gap: 6px; min-width: 0; }
   .mini .tbtn { flex: 1; text-align: center; }
 
   .jogset { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-dim); white-space: nowrap; }
-  .jogset input[type=number] { width: 50px; padding: 4px 5px; }
+  .jogset input[type=range] { width: 78px; }
+  .jogset .val { min-width: 30px; font-size: 11px; color: var(--accent); font-variant-numeric: tabular-nums; text-align: right; }
 
   @media (max-width: 900px) {
     html, body { height:auto; min-height:100%; }
-    body { overflow:auto; padding:8px; }
-    .frame { min-height:calc(100vh - 16px); overflow:visible; }
+    body { overflow:auto; overflow-x:hidden; padding:8px; }
+    .frame { min-height:calc(100vh - 16px); overflow:hidden; }
     header { flex-wrap:wrap; gap:8px 12px; padding:9px 12px; }
     header .badge { margin-left:0; }
     .hlegend { order:3; width:100%; flex-wrap:wrap; }
-    main { flex-direction:column; overflow:visible; }
+    main { flex-direction:column; overflow:visible; width:100%; }
     .graph-wrap { flex:none; width:100%; min-height:520px; height:62vh; }
     aside { width:100%; border-left:0; border-top:1px solid var(--line); overflow:visible; }
-    .aside-scroll { overflow:visible; }
+    .aside-scroll { overflow:visible; padding:10px; }
     .aside-top { padding-bottom:8px; }
     .playbar { left:8px; right:8px; gap:6px; flex-wrap:wrap; }
     .ptrack { min-width:120px; }
     .hint { max-width:calc(100% - 28px); }
+    .presets { grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 6px; }
+    .preset { aspect-ratio: auto; min-height: 38px; }
+    input[type=range] { width: clamp(150px, 58vw, 520px); flex: 1 1 150px; }
+    .jogset input[type=range] { width: 100px; flex: 0 0 100px; }
   }
 
   @media (max-width: 520px) {
@@ -213,7 +232,10 @@
     .playbar { bottom:36px; }
     .jogset { display:none; }
     .ptime { min-width:68px; }
-    input[type=range] { width:128px; }
+    .row { gap: 8px; }
+    .row label { max-width: 34%; white-space: normal; }
+    input[type=range] { width: clamp(120px, 48vw, 240px); flex-basis: 120px; }
+    .presets { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   }
 </style>
 </head>
@@ -241,7 +263,7 @@
       <button class="pbtn" id="playBtn" title="재생">▶</button>
       <button class="pbtn" id="stopBtn" title="정지">■</button>
       <button class="pbtn" id="cycleBtn" title="자동 왕복">⇄</button>
-      <span class="jogset" title="조그 스텝(초): 0.1 ~ 1.0"><span>조그</span><input type="number" id="jogScaleInput" min="0.1" max="1" step="0.05" value="0.5" /><span>s</span></span>
+      <span class="jogset" title="조그 스텝(초): 0.1 ~ 1.0"><span>조그</span><input type="range" id="jogScaleInput" min="0.1" max="1" step="0.05" value="0.5" /><span class="val" id="jogScaleVal">0.50s</span></span>
       <div class="ptrack" id="ptrack"><div class="pfill" id="pfill"></div></div>
       <span class="ptime" id="ptime">0.0 / 0.0 s</span>
     </div>
@@ -279,17 +301,17 @@
     <div class="group">
       <h3>밀도</h3>
       <div class="row"><label class="pan-dot">P-PNT</label>
-        <input type="number" id="panDensity" min="0.2" max="1" step="0.1" value="0.4" />
-        <span style="color:var(--text-dim)">/s</span></div>
+        <input type="range" id="panDensity" min="0.2" max="1" step="0.1" value="0.4" />
+        <span class="val" id="panDensityVal">0.4/s</span></div>
       <div class="row"><label class="tilt-dot">T-PNT</label>
-        <input type="number" id="tiltDensity" min="0.2" max="1" step="0.1" value="0.4" />
-        <span style="color:var(--text-dim)">/s</span></div>
+        <input type="range" id="tiltDensity" min="0.2" max="1" step="0.1" value="0.4" />
+        <span class="val" id="tiltDensityVal">0.4/s</span></div>
       <div class="row"><label class="zoom-dot">Z-PNT</label>
-        <input type="number" id="zoomDensity" min="0.2" max="1" step="0.1" value="0.4" />
-        <span style="color:var(--text-dim)">/s</span></div>
+        <input type="range" id="zoomDensity" min="0.2" max="1" step="0.1" value="0.4" />
+        <span class="val" id="zoomDensityVal">0.4/s</span></div>
       <div class="row"><label class="focus-dot">F-PNT</label>
-        <input type="number" id="focusDensity" min="0.2" max="1" step="0.1" value="0.4" />
-        <span style="color:var(--text-dim)">/s</span></div>
+        <input type="range" id="focusDensity" min="0.2" max="1" step="0.1" value="0.4" />
+        <span class="val" id="focusDensityVal">0.4/s</span></div>
       <div class="mini">
         <button class="tbtn" id="regenBtn">RAW 재생성</button>
         <button class="tbtn" id="resampleBtn">포인트 재생성</button>
@@ -369,8 +391,8 @@
     <div class="group" id="csvGroup">
       <h3>데이터 입출력 (CSV)</h3>
       <div class="row"><label>내보내기 FPS</label>
-        <input type="number" id="csvFps" min="1" max="120" step="1" value="30" />
-        <span style="color:var(--text-dim)">fps</span></div>
+        <input type="range" id="csvFps" min="1" max="120" step="1" value="30" />
+        <span class="val" id="csvFpsVal">30fps</span></div>
       <div class="mini">
         <button class="tbtn" id="csvExportBtn">CSV 내보내기</button>
         <button class="tbtn" id="csvImportBtn">CSV 가져오기</button>
@@ -864,7 +886,13 @@ function jogPlayhead(key){
   if(play.on) pausePlay();
   setPlayheadT(play.t + (key==="right"?1:-1)*jogStep);   // 조그는 고정 스텝(스냅 미적용)
 }
-function jogLabel(){ const el=$("jogScaleInput"); if(el) el.value = (jogStep/1000); }
+function jogLabel(){
+  const el=$("jogScaleInput"), val=$("jogScaleVal");
+  if(!el) return;
+  const sec = jogStep/1000;
+  el.value = sec;
+  if(val) val.textContent = sec.toFixed(2)+"s";
+}
 
 function draw(){
   drawGrid();
@@ -1297,10 +1325,23 @@ $("easeRunBtn").addEventListener("click", ()=>{
 $("startPct").addEventListener("input", e=>{ state.startPct=+e.target.value; $("startPctVal").textContent=e.target.value+"%"; markDirty(); if(state.stage==="flt")computeFiltered(); draw(); });
 $("endPct").addEventListener("input", e=>{ state.endPct=+e.target.value; $("endPctVal").textContent=e.target.value+"%"; markDirty(); if(state.stage==="flt")computeFiltered(); draw(); });
 function clampDensity(v){ return Math.max(0.2, Math.min(1, +v||0.4)); }
-$("panDensity").addEventListener("change", e=>{ const v=clampDensity(e.target.value); axes.pan.density=v; e.target.value=v; });
-$("tiltDensity").addEventListener("change", e=>{ const v=clampDensity(e.target.value); axes.tilt.density=v; e.target.value=v; });
-$("zoomDensity").addEventListener("change", e=>{ const v=clampDensity(e.target.value); axes.zoom.density=v; e.target.value=v; });
-$("focusDensity").addEventListener("change", e=>{ const v=clampDensity(e.target.value); axes.focus.density=v; e.target.value=v; });
+function bindDensity(id, name){
+  const el=$(id), val=$(id+"Val");
+  function sync(){
+    const v=clampDensity(el.value);
+    axes[name].density=v;
+    el.value=v.toFixed(1);
+    if(val) val.textContent=v.toFixed(1)+"/s";
+  }
+  el.addEventListener("input", sync);
+  el.addEventListener("change", sync);
+  sync();
+}
+bindDensity("panDensity","pan");
+bindDensity("tiltDensity","tilt");
+bindDensity("zoomDensity","zoom");
+bindDensity("focusDensity","focus");
+$("csvFps").addEventListener("input", e=>{ $("csvFpsVal").textContent=csvFps()+"fps"; });
 // 포인트 재생성: 현재 경로 형상(폴리라인)을 유지한 채 지정 밀도로 리샘플
 function resamplePoints(){
   AXIS_NAMES.forEach(name=>{
@@ -1567,10 +1608,10 @@ $("playBtn").addEventListener("click", function(){ this.blur(); go(1); });
 $("revBtn").addEventListener("click", function(){ this.blur(); go(-1); });
 $("stopBtn").addEventListener("click", function(){ this.blur(); resetPlay(); });
 $("cycleBtn").addEventListener("click", function(){ this.blur(); play.cycle=!play.cycle; this.classList.toggle("on", play.cycle); });
-$("jogScaleInput").addEventListener("change", e=>{
+$("jogScaleInput").addEventListener("input", e=>{
   let v=+e.target.value; if(!(v>0)) v=0.5;
   v=Math.max(0.1, Math.min(1, v));
-  e.target.value=v; jogStep=Math.round(v*1000);
+  e.target.value=v; jogStep=Math.round(v*1000); jogLabel();
 });
 $("ptrack").addEventListener("click", e=>{
   if(!syncable()) return;
