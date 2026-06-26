@@ -1,12 +1,271 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CineHead v3 · 4축 모션패스 생성·편집 시뮬레이터</title>
+<style>
+  :root {
+    --bg: #0b0f14;
+    --panel: #121821;
+    --panel-2: #18202b;
+    --line: #243140;
+    --grid: #1b2531;
+    --grid-major: #2b3a4d;
+    --grid-zero: #5a7da0;
+    --text: #d7e0ea;
+    --text-dim: #8a97a6;
+    --accent: #38bdf8;
+    --pan: #38bdf8;
+    --tilt: #f5a524;
+    --zoom: #a78bfa;
+    --focus: #fb7185;
+    --flt: #34d399;
+    --danger: #f87171;
+    --ok: #22c55e;
+  }
+  * {
+    box-sizing: border-box; min-width: 0;
+    -webkit-user-select: none; user-select: none;
+  }
+  html, body {
+    height: 100%; margin: 0;
+    -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none;
+    overscroll-behavior: none;
+  }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, "Malgun Gothic", sans-serif;
+    font-size: 13px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 14px;
+  }
+  .frame {
+    flex: 1; display: flex; flex-direction: column; min-height: 0;
+    border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
+    box-shadow: 0 8px 30px rgba(0,0,0,.35);
+  }
+  header {
+    display: flex; align-items: center; gap: 14px;
+    padding: 10px 18px;
+    background: linear-gradient(180deg,#141c26,#0d141c);
+    border-bottom: 1px solid var(--line);
+  }
+  header h1 { font-size: 15px; margin: 0; letter-spacing: .3px; font-weight: 600; }
+  header .sub { color: var(--text-dim); font-size: 12px; }
+  header .badge {
+    margin-left: auto; font-size: 11px; color: var(--text-dim);
+    border: 1px solid var(--line); padding: 3px 8px; border-radius: 999px;
+  }
+  .stage-tag { color: var(--accent); font-weight: 600; }
+  .hlegend { display: flex; gap: 13px; font-size: 11.5px; color: var(--text-dim); align-items: center; }
+  .hlegend span { display: inline-flex; align-items: center; }
+  .hlegend i { display: inline-block; width: 15px; height: 3px; margin-right: 6px; border-radius: 2px; }
+
+  main { flex: 1; display: flex; min-height: 0; overflow: hidden; }
+
+  .graph-wrap { flex: 1; position: relative; min-width: 0; background: #0a0e13; }
+  canvas { display: block; width: 100%; height: 100%; cursor: crosshair; touch-action:none; }
+  .hint {
+    position: absolute; bottom: 12px; left: 14px; right: 14px;
+    color: var(--text-dim); font-size: 11px; pointer-events: none;
+    background: rgba(10,14,19,.55); padding: 5px 10px; border-radius: 6px;
+    border: 1px solid var(--line); width: fit-content;
+  }
+  .toast {
+    position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+    background: var(--panel-2); border: 1px solid var(--accent); color: var(--text);
+    padding: 8px 14px; border-radius: 8px; font-size: 12px; opacity: 0;
+    transition: opacity .25s; pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+
+  aside {
+    width: 308px; flex: none; background: var(--panel);
+    border-left: 1px solid var(--line); display: flex; flex-direction: column; overflow: hidden;
+  }
+  .aside-top { flex: none; padding: 12px 12px 2px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  .aside-top .group { margin-bottom: 10px; }
+  .aside-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 12px; }
+  .aside-scroll::-webkit-scrollbar { width: 9px; }
+  .aside-scroll::-webkit-scrollbar-thumb { background: #263344; border-radius: 8px; }
+
+  .group { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 12px; }
+  .group h3 {
+    margin: 0 0 11px; padding: 0 0 8px; font-size: 14px; color: #5b6675;
+    font-weight: 800; letter-spacing: .2px;
+    border-bottom: 1px solid var(--line);
+  }
+  .subh { font-size: 11px; color: var(--text-dim); font-weight: 600; letter-spacing: .3px; margin: 12px 0 5px; }
+  .dimmed { opacity: .42; pointer-events: none; }
+  input[type=range]:disabled { opacity: .4; cursor: not-allowed; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 9px 0; min-width: 0; }
+  .row label { color: var(--text); font-size: 12.5px; flex: 0 0 auto; }
+  .row .val { color: var(--accent); font-variant-numeric: tabular-nums; font-size: 12px; min-width: 56px; text-align: right; flex: 0 0 auto; }
+
+  input[type=range] {
+    -webkit-appearance: none; appearance: none;
+    width: clamp(96px, 45%, 170px); max-width: 100%; height: 24px;
+    background: transparent; outline: none; touch-action: pan-y;
+  }
+  input[type=range]::-webkit-slider-runnable-track { height: 6px; background: #2a3848; border-radius: 999px; }
+  input[type=range]::-moz-range-track { height: 6px; background: #2a3848; border-radius: 999px; }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 22px; height: 22px; margin-top: -8px;
+    border-radius: 50%; background: var(--accent); cursor: pointer; border: 2px solid #0b0f14;
+    box-shadow: 0 0 0 4px rgba(56,189,248,.12);
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 22px; height: 22px; border-radius: 50%; background: var(--accent);
+    cursor: pointer; border: 2px solid #0b0f14; box-shadow: 0 0 0 4px rgba(56,189,248,.12);
+  }
+  input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; }
+
+  .pan-dot { color: var(--pan); } .tilt-dot { color: var(--tilt); }
+  .zoom-dot { color: var(--zoom); } .focus-dot { color: var(--focus); }
+  .axis-picks { display:grid; grid-template-columns:repeat(4,1fr); gap:5px; margin:7px 0 10px; }
+  .axis-pick { padding:5px 3px; text-align:center; }
+  .axis-pick[data-axis="pan"].on { color:var(--pan); border-color:var(--pan); }
+  .axis-pick[data-axis="tilt"].on { color:var(--tilt); border-color:var(--tilt); }
+  .axis-pick[data-axis="zoom"].on { color:var(--zoom); border-color:var(--zoom); }
+  .axis-pick[data-axis="focus"].on { color:var(--focus); border-color:var(--focus); }
+  .move-axis-picks { margin-bottom: 12px; }
+  .move-row input[type=range] { flex: 1 1 150px; }
+  .offset-axis { border-left:3px solid var(--line); padding-left:8px; margin:10px 0; }
+  .offset-axis.pan { border-color:var(--pan); }
+  .offset-axis.tilt { border-color:var(--tilt); }
+  .offset-axis.zoom { border-color:var(--zoom); }
+  .offset-axis.focus { border-color:var(--focus); }
+
+  .tbtn {
+    border: 1px solid var(--line); background: #0d141c; color: var(--text-dim);
+    border-radius: 7px; padding: 6px 10px; font-size: 12px; cursor: pointer; transition: all .15s;
+    min-width: 0;
+  }
+  .tbtn:hover { border-color: var(--accent); color: var(--text); }
+  .tbtn.on { background: rgba(56,189,248,.15); border-color: var(--accent); color: var(--accent); }
+
+  /* 라운드 슬라이드 스위치 (ON/OFF) */
+  .sw {
+    position: relative; width: 44px; height: 23px; flex: none; padding: 0;
+    border: 1px solid var(--line); background: #0d141c; border-radius: 999px;
+    cursor: pointer; transition: background .15s, border-color .15s;
+  }
+  .sw::after {
+    content: ""; position: absolute; top: 2px; left: 2px; width: 17px; height: 17px;
+    border-radius: 50%; background: var(--text-dim); transition: transform .18s, background .18s;
+  }
+  .sw:hover { border-color: var(--accent); }
+  .sw.on { background: rgba(56,189,248,.28); border-color: var(--accent); }
+  .sw.on::after { transform: translateX(21px); background: var(--accent); }
+  .sw.disabled { opacity: .4; cursor: not-allowed; }
+  .sw.disabled:hover { border-color: var(--line); }
+
+  .actions { display: flex; gap: 8px; margin-bottom: 10px; }
+  .btn {
+    flex: 1; padding: 8px; border-radius: 8px; border: none; cursor: pointer;
+    font-size: 12.5px; font-weight: 600; letter-spacing: .3px; transition: filter .15s;
+  }
+  .btn:hover { filter: brightness(1.12); }
+  .btn-main { background: var(--flt); color: #04150e; }
+  .btn-main.edit { background: var(--tilt); color: #1a1000; }
+  .btn-confirm { background: var(--accent); color: #041420; }
+
+  .presets { display: grid; grid-template-columns: repeat(auto-fit, minmax(44px, 1fr)); gap: 7px; width: 100%; }
+  .preset {
+    min-height: 34px; aspect-ratio: 1.4; border: 1px solid var(--line); background: #0d141c; color: var(--text-dim);
+    border-radius: 8px; font-size: 12px; cursor: default; display: flex; align-items: center; justify-content: center;
+    position: relative; transition: all .2s;
+  }
+  .preset.lit { background: rgba(34,197,94,.16); border-color: var(--ok); color: var(--ok); box-shadow: 0 0 10px rgba(34,197,94,.35); cursor: pointer; }
+  .preset.lit:hover { filter: brightness(1.2); }
+  .preset.loaded { background: rgba(236,72,153,.22); border: 2px solid #f472b6; color: #f9a8d4; font-weight: 700; box-shadow: 0 0 16px rgba(236,72,153,.7); }
+  .presets.delmode .preset.lit { border-color: var(--danger); color: var(--danger); background: rgba(248,113,113,.14); box-shadow: 0 0 10px rgba(248,113,113,.35); }
+  .presets.delmode .preset.lit:hover { background: rgba(248,113,113,.3); }
+
+  /* 플레이바 */
+  .playbar {
+    position: absolute; left: 14px; right: 14px; bottom: 40px;
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(13,20,28,.82); border: 1px solid var(--line);
+    border-radius: 10px; padding: 7px 10px;
+  }
+  .pbtn {
+    width: 32px; height: 28px; border: 1px solid var(--line); background: #0d141c;
+    color: var(--text); border-radius: 7px; cursor: pointer; font-size: 12px; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .pbtn:hover { border-color: var(--accent); color: var(--accent); }
+  .pbtn.on { background: rgba(56,189,248,.16); border-color: var(--accent); color: var(--accent); }
+  .pbtn.disabled { opacity: .35; cursor: not-allowed; }
+  .ptrack { flex: 1; height: 6px; background: #243140; border-radius: 6px; position: relative; cursor: pointer; }
+  .pfill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--accent); border-radius: 6px; }
+  .ptime { color: var(--text-dim); font-size: 11px; font-variant-numeric: tabular-nums; min-width: 78px; text-align: right; }
+
+  .mini { display: flex; gap: 6px; min-width: 0; }
+  .mini .tbtn { flex: 1; text-align: center; }
+  .density-row input[type=range] { flex: 1 1 110px; }
+  .stepper { display: inline-flex; gap: 4px; flex: 0 0 auto; }
+  .stepbtn {
+    width: 30px; height: 30px; padding: 0; border-radius: 8px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 18px; line-height: 1; font-weight: 700;
+    touch-action: manipulation; user-select: none;
+  }
+
+  .jogset { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-dim); white-space: nowrap; }
+  .jogset input[type=range] { width: 78px; }
+  .jogset .val { min-width: 30px; font-size: 11px; color: var(--accent); font-variant-numeric: tabular-nums; text-align: right; }
+
+  @media (max-width: 900px) {
+    html, body { height:auto; min-height:100%; }
+    body { overflow:auto; overflow-x:hidden; padding:8px; }
+    .frame { min-height:calc(100vh - 16px); overflow:hidden; }
+    header { flex-wrap:wrap; gap:8px 12px; padding:9px 12px; }
+    header .badge { margin-left:0; }
+    .hlegend { order:3; width:100%; flex-wrap:wrap; }
+    main { flex-direction:column; overflow:visible; width:100%; }
+    .graph-wrap { flex:none; width:100%; min-height:520px; height:62vh; }
+    aside { width:100%; border-left:0; border-top:1px solid var(--line); overflow:visible; }
+    .aside-scroll { overflow:visible; padding:10px; }
+    .aside-top { padding-bottom:8px; }
+    .playbar { left:8px; right:8px; gap:6px; flex-wrap:wrap; }
+    .ptrack { min-width:120px; }
+    .hint { max-width:calc(100% - 28px); }
+    .presets { grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 6px; }
+    .preset { aspect-ratio: auto; min-height: 38px; }
+    input[type=range] { width: clamp(150px, 58vw, 520px); flex: 1 1 150px; }
+    .jogset input[type=range] { width: 100px; flex: 0 0 100px; }
+  }
+
+  @media (max-width: 520px) {
+    body { padding:0; }
+    .frame { border-radius:0; border-left:0; border-right:0; }
+    header h1 { width:100%; font-size:14px; }
+    .graph-wrap { min-height:480px; height:58vh; }
+    .playbar { bottom:36px; }
+    .jogset { display:none; }
+    .ptime { min-width:68px; }
+    .row { gap: 8px; }
+    .row label { max-width: 34%; white-space: normal; }
+    .density-row { gap: 6px; }
+    .density-row label { flex: 0 0 46px; max-width: none; }
+    .density-row .val { min-width: 42px; }
+    .density-row input[type=range] { flex: 1 1 80px; width: auto; }
+    .stepbtn { width: 28px; height: 28px; }
+    input[type=range] { width: clamp(120px, 48vw, 240px); flex-basis: 120px; }
+    .presets { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  }
+</style>
+</head>
+<body>
 <div class="frame">
 <header>
   <h1>CineHead v3 · 4축 모션패스 시뮬레이터</h1>
-  <span class="sub">단계: <span class="stage-tag" id="stageTag">RAW MP</span></span>
-  <span class="hlegend">
-    <span><i style="background:var(--pan)"></i>P-PT (Pan)</span>
-    <span><i style="background:var(--tilt)"></i>T-PT (Tilt)</span>
-    <span><i style="background:var(--zoom)"></i>Z-PT (Zoom)</span>
-    <span><i style="background:var(--focus)"></i>F-PT (Focus)</span>
   <span class="sub">단계: <span class="stage-tag" id="stageTag">RAW MP</span></span>
   <span class="hlegend">
     <span><i style="background:var(--pan)"></i>Pan</span>
@@ -15,22 +274,117 @@
     <span><i style="background:var(--focus)"></i>Focus</span>
     <span><i style="background:var(--flt)"></i>FLT 곡선</span>
   </span>
-  </span>
   <span class="badge" id="aiBadge">4 AXIS · AI: OFF · ML 미적용</span>
 </header>
 
+<main>
+  <div class="graph-wrap">
+    <canvas id="cv"></canvas>
+    <div class="playbar">
+      <button class="pbtn" id="syncBtn" title="모터싱크: 모터를 플레이헤드 위치로 복귀" style="width:auto;padding:0 10px;font-size:11px;font-weight:600">SYNC</button>
+      <button class="pbtn" id="revBtn" title="역재생">◀</button>
+      <button class="pbtn" id="playBtn" title="재생">▶</button>
+      <button class="pbtn" id="stopBtn" title="정지">■</button>
+      <button class="pbtn" id="cycleBtn" title="자동 왕복">⇄</button>
+      <span class="jogset" title="조그 스텝(초): 0.1 ~ 1.0"><span>조그</span><input type="range" id="jogScaleInput" min="0.1" max="1" step="0.05" value="0.5" /><span class="val" id="jogScaleVal">0.50s</span></span>
+      <div class="ptrack" id="ptrack"><div class="pfill" id="pfill"></div></div>
+      <span class="ptime" id="ptime">0.0 / 0.0 s</span>
+    </div>
+    <div class="hint" id="hint">RAW MP: 포인트를 마우스·터치로 드래그해 경로를 편집하세요.</div>
+    <div class="toast" id="toast"></div>
+  </div>
+
+  <aside>
+    <div class="aside-top">
+      <div class="actions">
+        <button class="btn btn-main" id="mainBtn">SMOOTH</button>
+        <button class="btn btn-confirm" id="confirmBtn">CONFIRM</button>
+      </div>
+      <div class="group" id="smoothOptGroup">
+        <h3>완화 옵션</h3>
+        <div class="row"><label>SUPER SMOOTH</label>
+          <button class="sw disabled" id="superSmooth" title="재편집(EDIT)에서 체크 후 SMOOTH 시 완전 S-Curve 변환"></button></div>
+        <div class="row"><label>AI 모드</label>
+          <button class="sw" id="aiBtn" title="현재 ON/OFF 동작만 (ML 학습값 미적용)"></button></div>
+        <div class="row"><label>Kalman 강도</label>
+          <input type="range" id="fltStrength" min="0" max="100" value="60" />
+          <span class="val" id="fltStrengthVal">60%</span></div>
+      </div>
+    </div>
+
+    <div class="aside-scroll">
+    <div class="group">
+      <h3>편집 이력</h3>
+      <div class="mini">
+        <button class="tbtn" id="undoBtn">↶ Undo</button>
+        <button class="tbtn" id="redoBtn">Redo ↷</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <h3>밀도</h3>
+      <div class="row density-row"><label class="pan-dot">P-PNT</label>
+        <input type="range" id="panDensity" min="0.2" max="1" step="0.1" value="0.4" />
+        <span class="val" id="panDensityVal">0.4/s</span>
+        <span class="stepper density-stepper" data-target="panDensity"><button class="tbtn stepbtn" data-step="-0.1" aria-label="P-PNT 밀도 0.1 감소">−</button><button class="tbtn stepbtn" data-step="0.1" aria-label="P-PNT 밀도 0.1 증가">+</button></span></div>
+      <div class="row density-row"><label class="tilt-dot">T-PNT</label>
+        <input type="range" id="tiltDensity" min="0.2" max="1" step="0.1" value="0.4" />
+        <span class="val" id="tiltDensityVal">0.4/s</span>
+        <span class="stepper density-stepper" data-target="tiltDensity"><button class="tbtn stepbtn" data-step="-0.1" aria-label="T-PNT 밀도 0.1 감소">−</button><button class="tbtn stepbtn" data-step="0.1" aria-label="T-PNT 밀도 0.1 증가">+</button></span></div>
+      <div class="row density-row"><label class="zoom-dot">Z-PNT</label>
+        <input type="range" id="zoomDensity" min="0.2" max="1" step="0.1" value="0.4" />
+        <span class="val" id="zoomDensityVal">0.4/s</span>
+        <span class="stepper density-stepper" data-target="zoomDensity"><button class="tbtn stepbtn" data-step="-0.1" aria-label="Z-PNT 밀도 0.1 감소">−</button><button class="tbtn stepbtn" data-step="0.1" aria-label="Z-PNT 밀도 0.1 증가">+</button></span></div>
+      <div class="row density-row"><label class="focus-dot">F-PNT</label>
+        <input type="range" id="focusDensity" min="0.2" max="1" step="0.1" value="0.4" />
+        <span class="val" id="focusDensityVal">0.4/s</span>
+        <span class="stepper density-stepper" data-target="focusDensity"><button class="tbtn stepbtn" data-step="-0.1" aria-label="F-PNT 밀도 0.1 감소">−</button><button class="tbtn stepbtn" data-step="0.1" aria-label="F-PNT 밀도 0.1 증가">+</button></span></div>
+      <div class="mini">
+        <button class="tbtn" id="regenBtn">RAW 재생성</button>
+        <button class="tbtn" id="resampleBtn">포인트 재생성</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <h3>경로 확장</h3>
+      <div class="subh">적용 축 (복수 선택)</div>
+      <div class="axis-picks" id="axisPicks">
+        <button class="tbtn axis-pick on" data-axis="pan">P</button>
+        <button class="tbtn axis-pick on" data-axis="tilt">T</button>
+        <button class="tbtn axis-pick on" data-axis="zoom">Z</button>
+        <button class="tbtn axis-pick on" data-axis="focus">F</button>
+      </div>
+      <div class="subh">비례확장</div>
+      <div id="propScaleWrap">
+        <div class="row"><label>X 배율(속도)</label>
+          <input type="range" id="scaleX" min="0.5" max="1.5" step="0.02" value="1" />
+          <span class="val" id="scaleXVal">1.00x</span></div>
+        <div class="row"><label>Y 배율(거리)</label>
+          <input type="range" id="scaleY" min="0.5" max="1.5" step="0.02" value="1" />
+          <span class="val" id="scaleYVal">1.00x</span></div>
+      </div>
+      <div class="subh">동기화</div>
+      <div class="row"><label>시작/끝점 일치</label><button class="sw" id="matchBtn"></button></div>
+      <div class="row"><label>시작/끝 점 고정</label><button class="sw" id="pinBtn"></button></div>
+    </div>
+
+    <div class="group" id="offsetGroup">
+      <h3>경로 이동</h3>
+      <div class="subh">적용 축 (복수 선택)</div>
+      <div class="axis-picks move-axis-picks" id="moveAxisPicks">
+        <button class="tbtn axis-pick move-axis-pick on" data-axis="pan">P</button>
+        <button class="tbtn axis-pick move-axis-pick on" data-axis="tilt">T</button>
+        <button class="tbtn axis-pick move-axis-pick on" data-axis="zoom">Z</button>
+        <button class="tbtn axis-pick move-axis-pick on" data-axis="focus">F</button>
+      </div>
+      <div class="row move-row"><label>X 위치</label>
+        <input type="range" id="moveX" min="-15000" max="15000" step="100" value="0" />
+        <span class="val" id="moveXVal">0.0s</span></div>
+      <div class="row move-row"><label>Y 위치</label>
+        <input type="range" id="moveY" min="-360" max="360" step="1" value="0" />
         <span class="val" id="moveYVal">0°</span></div>
     </div>
 
-    <div class="group" id="easeGroup">
-      <h3>시작/끝 영역 완화</h3>
-      <div class="row"><label>대상 경로</label>
-        <div class="mini" style="flex:none">
-          <button class="tbtn on" id="easePanBtn">P-PT</button>
-          <button class="tbtn" id="easeTiltBtn">T-PT</button>
-          <button class="tbtn" id="easeZoomBtn">Z-PT</button>
-          <button class="tbtn" id="easeFocusBtn">F-PT</button>
-        </div></div>
     <div class="group" id="easeGroup">
       <h3>시작/끝 영역 완화</h3>
       <div class="subh">적용 축 (복수 선택)</div>
@@ -43,37 +397,391 @@
       <div class="row"><label>시작 영역</label>
         <input type="range" id="startPct" min="5" max="30" value="15" />
         <span class="val" id="startPctVal">15%</span></div>
+      <div class="row"><label>끝 영역</label>
+        <input type="range" id="endPct" min="70" max="95" value="85" />
+        <span class="val" id="endPctVal">85%</span></div>
+      <div class="row"><label>선택 영역 완화</label><button class="sw" id="easeBtn"></button></div>
+      <div class="row"><button class="tbtn" id="easeRunBtn" style="flex:1">구간 완만화 실행</button></div>
+    </div>
+
+    <div class="group" id="csvGroup">
+      <h3>데이터 입출력 (CSV)</h3>
+      <div class="row"><label>내보내기 FPS</label>
+        <input type="range" id="csvFps" min="1" max="120" step="1" value="30" />
+        <span class="val" id="csvFpsVal">30fps</span></div>
+      <div class="mini">
+        <button class="tbtn" id="csvExportBtn">CSV 내보내기</button>
+        <button class="tbtn" id="csvImportBtn">CSV 가져오기</button>
+      </div>
+      <div class="row" style="margin-top:8px"><button class="tbtn" id="csvPresetExportBtn" style="flex:1">프리셋 일괄 내보내기 (개별 파일)</button></div>
+      <input type="file" id="csvFile" accept=".csv,text/csv" style="display:none" />
+    </div>
+
+    <div class="group">
+      <h3>격자 스케일</h3>
+      <div class="row"><label>X 격자</label>
+        <input type="range" id="gridScaleX" min="0.1" max="2" step="0.1" value="0.2" />
+        <span class="val" id="gridScaleXVal">0.2x</span></div>
+      <div class="row"><label>Y 격자</label>
+        <input type="range" id="gridScaleY" min="0.1" max="2" step="0.1" value="0.2" />
+        <span class="val" id="gridScaleYVal">0.2x</span></div>
+      <div class="row"><label>스냅</label><input type="checkbox" id="snap" checked /></div>
+    </div>
+
+    <div class="group">
+      <div class="row" style="margin-top:0">
+        <h3 style="margin:0">프리셋 (CST MP)</h3>
+        <span style="display:flex;align-items:center;gap:7px">
+          <span style="font-size:12px;color:var(--text)">삭제</span>
+          <button class="sw" id="delBtn"></button>
+        </span>
+      </div>
+      <div class="presets" id="presets"></div>
+    </div>
+    </div>
+  </aside>
+</main>
+</div>
+
+<script>
+"use strict";
+
+// ---------- 상수 / 좌표계 ----------
+const T_MAX = 30000;      // ms
+const DEG_MAX = 360;      // ±360
+const AXIS_NAMES = ["pan", "tilt", "zoom", "focus"];
+const AXIS_LABEL = { pan:"P-PT", tilt:"T-PT", zoom:"Z-PT", focus:"F-PT" };
+const COL = { pan: "#38bdf8", tilt: "#f5a524", zoom:"#a78bfa", focus:"#fb7185", flt: "#34d399" };
+
+const cv = document.getElementById("cv");
+const ctx = cv.getContext("2d");
+let plot = { x: 0, y: 0, w: 0, h: 0 };
+let dpr = Math.max(1, window.devicePixelRatio || 1);
+
+// 터치 디스플레이에서 실수로 페이지 텍스트/HTML이 드래그 선택되는 현상 방지
+document.addEventListener("selectstart", e=>{
+  if(e.target && e.target.closest && e.target.closest(".frame")) e.preventDefault();
+});
+document.addEventListener("dragstart", e=>{
+  if(e.target && e.target.closest && e.target.closest(".frame")) e.preventDefault();
+});
+
+// ---------- 상태 ----------
+const state = {
+  stage: "raw",            // raw | flt | edit
+  fltStrength: 60,
+  gridScaleX: 0.2,
+  gridScaleY: 0.2,
+  snap: true,
+  scaleXPrev: 1,
+  scaleYPrev: 1,
   match: false,
   startPct: 15,
   endPct: 85,
-  ease: false,
-  easeTarget: "pan",       // pan | tilt | zoom | focus
   ease: false,
   easeAxes: { pan:true, tilt:true, zoom:true, focus:true },
   ai: false,
   superSmooth: false,
   presets: new Array(10).fill(null),
+  dirty: true,            // 마지막 저장 이후 경로 변경 여부
+  loadedPreset: -1,       // 현재 호출된 프리셋 인덱스
+  deleteMode: false,
+  movePrev: { X:0, Y:0 },
+  selectedAxes: { pan:true, tilt:true, zoom:true, focus:true },
+  moveAxes: { pan:true, tilt:true, zoom:true, focus:true },
+  pinEnds: false,          // 시작/끝(IN·OUT) 포인트 고정
+  pin: null,               // 축별 {axis:[in,out]} 고정값
+};
+
+// ---------- IN/OUT 포인트 고정 ----------
+function capturePins(){
+  state.pin = {};
+  AXIS_NAMES.forEach(n=>{
+    state.pin[n] = null;
+    const p = (state.stage==="flt" && axes[n].filtered.length) ? axes[n].filtered : axes[n].points;
+    if(p.length>=2) state.pin[n] = [{t:p[0].t,deg:p[0].deg}, {t:p[p.length-1].t,deg:p[p.length-1].deg}];
+  });
+}
+function applyPins(arr, name){
+  if(!state.pinEnds || !state.pin || !state.pin[name] || arr.length<2) return;
+  const [i,o]=state.pin[name];
+  arr[0].t=i.t; arr[0].deg=i.deg;
+  arr[arr.length-1].t=o.t; arr[arr.length-1].deg=o.deg;
+}
+function enforcePinsPoints(){ AXIS_NAMES.forEach(n=>applyPins(axes[n].points,n)); }
+function markDirty(){
+  state.dirty = true;
+  if(state.loadedPreset!==-1){ state.loadedPreset=-1; renderPresets(); }
+}
+
+// 재생(플레이) 상태. synced: 플레이바가 모터 위치와 동기화됨(모터싱크 후 재생 가능)
+// dir: 1(정방향)/-1(역방향). atEnd: 끝에서 정지(역플레이 대기), atStart: 시작에서 정지
+const play = { on: false, synced: false, t: 0, dir: 1, cycle: false, raf: null, last: 0 };
+// 모터 실제 위치(시간축). 항상 표시, 편집 불가. 재생 중 플레이바를 실시간 추종.
+const motor = { t: 0 };
+
+// Undo/Redo 이력 (포인트 편집, 최대 20단계)
+let undoStack = [], redoStack = [];
+const HISTORY_MAX = 20;
+
+// 각 축: raw(원본 비교용 고정), points(편집 가능 워킹셋), filtered(스무딩 결과 포인트값)
+const axes = {
+  pan:  { density: 0.4, raw: [], points: [], filtered: [] },
+  tilt: { density: 0.4, raw: [], points: [], filtered: [] },
+  zoom: { density: 0.4, raw: [], points: [], filtered: [] },
+  focus:{ density: 0.4, raw: [], points: [], filtered: [] },
+};
+
+function constantPath(deg=0){ return [{t:0,deg},{t:T_MAX,deg}]; }
+function persistPresets(){
+  try{ localStorage.setItem("cinehead-v3-presets",JSON.stringify({version:3,presets:state.presets})); }catch(_){ }
+}
+function restorePersistedPresets(){
+  try{
+    const saved=JSON.parse(localStorage.getItem("cinehead-v3-presets")||localStorage.getItem("cinehead-v2-presets")||"null");
+    if((saved?.version===3||saved?.version===2)&&Array.isArray(saved.presets))
+      state.presets=saved.presets.slice(0,10).concat(new Array(10).fill(null)).slice(0,10);
+  }catch(_){ }
+}
+
+// 초기 RAW 정의: 사람이 S-Curve를 목표로 입력한 듯한 "러프한 S-Curve"
+const RAWDEF = {
+  pan:  { t0: 6000,  t1: 27000, d0: 15, d1: 180 },
+  tilt: { t0: 3000,  t1: 25000, d0: 15, d1: -180 },
+  zoom: { t0: 4500,  t1: 23500, d0: -20, d1: 95 },
+  focus:{ t0: 7500,  t1: 28500, d0: 40, d1: -120 },
+};
+
+// ---------- RAW 생성 (러프 S-Curve: 단조 증가/감소, 비정형 속도, 역방향 없음) ----------
+function genRaw(name){
+  const c = RAWDEF[name];
+  const dens = Math.max(0.2, Math.min(1, axes[name].density));
+  const n = Math.max(3, Math.round(dens * (c.t1-c.t0)/1000) + 1);
+  // 구간별 양(+)의 속도 가중치 → 누적하면 단조(역방향 없음).
+  // S-Curve 경향(가운데 빠름) + 끝단은 0이 아님(가감속이 점진적이지 않음) + 랜덤(비정형).
+  const w = [];
+  for (let i=0;i<n-1;i++){
+    const f = (i+0.5)/(n-1);
+    const sBias = 0.45 + Math.sin(Math.PI*f);          // 가운데 큼, 끝단도 0 아님
+    const rough = 0.55 + Math.random()*0.9;            // 비정형 속도
+    w.push(Math.max(0.05, sBias*rough));
+  }
+  const sum = w.reduce((a,b)=>a+b,0);
+  const pts = [{ t: c.t0, deg: c.d0 }];
+  let acc = 0;
+  for (let i=0;i<n-1;i++){
+    acc += w[i];
+    const prog = acc/sum;
+    const f = (i+1)/(n-1);
+    pts.push({ t: c.t0 + f*(c.t1-c.t0), deg: c.d0 + (c.d1-c.d0)*prog });
+  }
+  return pts;
+}
+function regenAxis(name){
+  const a = axes[name];
+  a.raw = genRaw(name);
+  a.points = a.raw.map(p=>({t:p.t, deg:p.deg}));
+  a.filtered = [];
+}
+function regenAll(){ AXIS_NAMES.forEach(regenAxis); state.stage="raw"; updateButtons(); draw(); }
+
+// ---------- Kalman (등속 모델) + RTS 평활 ----------
+function kalmanSmooth(values, dtSec, strength){
+  const n = values.length;
+  if (n < 2) return values.slice();
+  const q = 0.04;                       // 프로세스 노이즈
+  const r = 60 + (strength/100)*900;    // 측정 노이즈 (강도↑ → 더 부드럽게)
+  // 행렬: x=[pos,vel]
+  const F=[[1,dtSec],[0,1]];
+  let x=[values[0],0], P=[[100,0],[0,100]];
+  const xf=[], Pf=[], xp=[], Pp=[];
+  for(let i=0;i<n;i++){
+    // predict
+    const xpr=[F[0][0]*x[0]+F[0][1]*x[1], F[1][0]*x[0]+F[1][1]*x[1]];
+    const FP=[[F[0][0]*P[0][0]+F[0][1]*P[1][0], F[0][0]*P[0][1]+F[0][1]*P[1][1]],
+              [F[1][0]*P[0][0]+F[1][1]*P[1][0], F[1][0]*P[0][1]+F[1][1]*P[1][1]]];
+    let Ppr=[[FP[0][0]*F[0][0]+FP[0][1]*F[0][1], FP[0][0]*F[1][0]+FP[0][1]*F[1][1]],
+             [FP[1][0]*F[0][0]+FP[1][1]*F[0][1], FP[1][0]*F[1][0]+FP[1][1]*F[1][1]]];
+    Ppr[0][0]+=q*dtSec*dtSec*dtSec/3; Ppr[0][1]+=q*dtSec*dtSec/2;
+    Ppr[1][0]+=q*dtSec*dtSec/2;       Ppr[1][1]+=q*dtSec;
+    xp.push(xpr.slice()); Pp.push([Ppr[0].slice(),Ppr[1].slice()]);
+    // update (H=[1,0])
+    const S=Ppr[0][0]+r;
+    const K=[Ppr[0][0]/S, Ppr[1][0]/S];
+    const innov=values[i]-xpr[0];
+    x=[xpr[0]+K[0]*innov, xpr[1]+K[1]*innov];
+    P=[[(1-K[0])*Ppr[0][0], (1-K[0])*Ppr[0][1]],
+       [Ppr[1][0]-K[1]*Ppr[0][0], Ppr[1][1]-K[1]*Ppr[0][1]]];
+    xf.push(x.slice()); Pf.push([P[0].slice(),P[1].slice()]);
+  }
+  // RTS backward smoother
+  const xs=xf.map(v=>v.slice());
+  for(let i=n-2;i>=0;i--){
+    const Pp1=Pp[i+1];
+    const det=Pp1[0][0]*Pp1[1][1]-Pp1[0][1]*Pp1[1][0] || 1e-9;
+    const inv=[[Pp1[1][1]/det,-Pp1[0][1]/det],[-Pp1[1][0]/det,Pp1[0][0]/det]];
+    const Pf_i=Pf[i];
+    // C = Pf_i * F^T * inv(Pp1)
+    const FT=[[F[0][0],F[1][0]],[F[0][1],F[1][1]]];
+    const A=[[Pf_i[0][0]*FT[0][0]+Pf_i[0][1]*FT[1][0], Pf_i[0][0]*FT[0][1]+Pf_i[0][1]*FT[1][1]],
+             [Pf_i[1][0]*FT[0][0]+Pf_i[1][1]*FT[1][0], Pf_i[1][0]*FT[0][1]+Pf_i[1][1]*FT[1][1]]];
+    const C=[[A[0][0]*inv[0][0]+A[0][1]*inv[1][0], A[0][0]*inv[0][1]+A[0][1]*inv[1][1]],
+             [A[1][0]*inv[0][0]+A[1][1]*inv[1][0], A[1][0]*inv[0][1]+A[1][1]*inv[1][1]]];
+    const d=[xs[i+1][0]-xp[i+1][0], xs[i+1][1]-xp[i+1][1]];
+    xs[i]=[xf[i][0]+C[0][0]*d[0]+C[0][1]*d[1], xf[i][1]+C[1][0]*d[0]+C[1][1]*d[1]];
+  }
+  return xs.map(v=>v[0]);
+}
+
+// ---------- S-Curve 모션 프로필 (5차 smootherstep: 시작/끝 속도·가속 0) ----------
+function smootherstep(u){ u=Math.max(0,Math.min(1,u)); return u*u*u*(u*(u*6-15)+10); }
+
+// 이상적 추종 모델: 전체 경로의 진행 타이밍을 S-Curve로 워프
+// (서서히 가속 → 순항 → 서서히 감속). 시작/끝 포인트는 유지.
+function sCurveRetime(vals){
+  const n = vals.length; if(n<3) return vals.slice();
+  const out = new Array(n);
+  for(let i=0;i<n;i++){
+    const u = i/(n-1);
+    const w = smootherstep(u);          // 워프된 진행도
+    const pos = w*(n-1);
+    const i0 = Math.floor(pos), i1 = Math.min(n-1,i0+1), f = pos-i0;
+    out[i] = vals[i0]*(1-f) + vals[i1]*f;
+  }
+  return out;
+}
+
+// 시작/끝 영역을 "전체 경로 S-Curve 추종 모델"로 끌어당김.
+// 영역 안에서만 별도 S-Curve를 만드는 게 아니라, 전체 모델 값으로 수렴시키되
+// 영역 경계(안쪽)에서 가중치가 0이 되어 나머지 구간과 자연스럽게 이어짐.
+function sCurveRegion(pts, amount){
+  const n = pts.length; if(n<3) return;
+  const model = sCurveRetime(pts.map(p=>p.deg));     // 전체 경로 S-Curve 모델
+  const t0 = pts[0].t, t1 = pts[n-1].t, span = (t1-t0)||1;
+  const s = state.startPct/100, e = state.endPct/100;
+  for(let i=0;i<n;i++){
+    const f = (pts[i].t-t0)/span;
+    let w = 0;
+    if (f <= s) w = 1 - (f/s);          // 시작점 1 → 경계 0
+    else if (f >= e) w = (f-e)/(1-e);   // 경계 0 → 끝점 1
+    if (w>0){ const a = amount*w; pts[i].deg = pts[i].deg*(1-a) + model[i]*a; }
+  }
+}
+
+// 강한 다중 평활(모난 곳 제거) — SUPER SMOOTH용
+function heavySmooth(vals, passes){
+  let out = vals.slice();
+  for(let p=0;p<passes;p++){
+    const prev = out.slice();
+    for(let i=1;i<out.length-1;i++) out[i] = (prev[i-1]+2*prev[i]+prev[i+1])/4;
+  }
+  return out;
+}
+
+// ---------- SMOOTH 계산 ----------
+function computeFiltered(){
+  AXIS_NAMES.forEach(name=>{
+    const a = axes[name];
+    const src = a.points;
+    if (src.length < 2){ a.filtered = src.map(p=>({t:p.t,deg:p.deg})); return; }
+    const dtSec = (src[1].t - src[0].t)/1000 || (1/Math.max(0.2,a.density));
+    const vals = src.map(p=>p.deg);
+    let sm;
+    if (state.superSmooth){
+      // SUPER SMOOTH: 칼만 무시, 모난 곳 없는 완전한 S-Curve 모션 프로필 추종
+      sm = sCurveRetime(heavySmooth(vals, 40));
+    } else {
+      const k = state.fltStrength/100;
+      const kf = kalmanSmooth(vals, dtSec, state.fltStrength);  // 1) 칼만필터로 노이즈 제거
+      const model = sCurveRetime(kf);                           // 2) S-Curve 추종 모델로 타이밍 정형
       sm = vals.map((v,i)=> v*(1-k) + model[i]*k );             // 강도 0%=원본, 100%=모델 추종
     }
     a.filtered = src.map((p,i)=>({ t:p.t, deg: Math.max(-DEG_MAX,Math.min(DEG_MAX,sm[i])) }));
-    // 시작/끝 영역 이징도 동일한 S-Curve 모델을 따름 (선택된 한 축, SUPER SMOOTH 시 생략)
-    if (!state.superSmooth && state.ease && name === state.easeTarget) sCurveRegion(a.filtered, 0.85);
     // 시작/끝 영역 이징도 동일한 S-Curve 모델을 따름 (선택 축, SUPER SMOOTH 시 생략)
     if (!state.superSmooth && state.ease && state.easeAxes[name]) sCurveRegion(a.filtered, 0.85);
     applyPins(a.filtered, name);   // IN/OUT 고정 시 끝점 절대 유지
   });
 }
 
+// ---------- 좌표 변환 ----------
+const tToX = t => plot.x + (t/T_MAX)*plot.w;
+const degToY = d => plot.y + plot.h/2 - (d/DEG_MAX)*(plot.h/2);
+const xToT = px => ((px-plot.x)/plot.w)*T_MAX;
+const yToDeg = py => ((plot.y+plot.h/2 - py)/(plot.h/2))*DEG_MAX;
+
+// ---------- 렌더 ----------
+function resize(){
+  const r = cv.parentElement.getBoundingClientRect();
+  dpr = Math.max(1, window.devicePixelRatio||1);
+  cv.width = r.width*dpr; cv.height = r.height*dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  plot = { x: 52, y: 38, w: r.width-72, h: r.height-72 };
+  draw();
+}
+
+function drawGrid(){
+  ctx.clearRect(0,0,cv.width,cv.height);
+  // 배경
+  ctx.fillStyle = "#0a0e13"; ctx.fillRect(0,0,plot.x+plot.w+30, plot.y+plot.h+40);
+  const minorX = Math.max(200, 2500*state.gridScaleX), minorY = Math.max(4.5, 45*state.gridScaleY);
+  // 세로선
+  ctx.lineWidth = 1; ctx.font = "10px Segoe UI"; ctx.textAlign="center";
+  for(let t=0;t<=T_MAX+1;t+=minorX){
+    const x = tToX(t);
+    const major = Math.abs(t % 5000) < 1;
+    ctx.strokeStyle = major ? "#2b3a4d" : "#18222e";
+    ctx.beginPath(); ctx.moveTo(x,plot.y); ctx.lineTo(x,plot.y+plot.h); ctx.stroke();
+    if (major){ ctx.fillStyle="#6b7a8a"; ctx.fillText((t/1000)+"s", x, plot.y+plot.h+16); }
+  }
+  // 가로선
+  ctx.textAlign="right";
+  for(let d=-DEG_MAX; d<=DEG_MAX+1; d+=minorY){
+    const y = degToY(d);
+    const isZero = Math.abs(d) < 1;
+    const major = Math.abs(d % 90) < 1;
+    ctx.strokeStyle = isZero ? "#5a7da0" : (major ? "#2b3a4d" : "#18222e");
+    ctx.lineWidth = isZero ? 1.6 : 1;
+    ctx.beginPath(); ctx.moveTo(plot.x,y); ctx.lineTo(plot.x+plot.w,y); ctx.stroke();
+    if (major){ ctx.fillStyle = isZero ? "#9fc0e0" : "#6b7a8a"; ctx.fillText(d+"°", plot.x-8, y+3); }
+  }
+  ctx.lineWidth = 1;
+}
+
+function drawPolyline(pts, color, dashed){
+  if (pts.length<2) return;
+  ctx.strokeStyle = color; ctx.lineWidth = 2;
+  ctx.setLineDash(dashed?[5,4]:[]);
+  ctx.beginPath();
+  pts.forEach((p,i)=>{ const x=tToX(p.t), y=degToY(p.deg); i?ctx.lineTo(x,y):ctx.moveTo(x,y); });
+  ctx.stroke(); ctx.setLineDash([]);
+}
+
+function drawSpline(pts, color){
+  if (pts.length<2) return;
+  ctx.strokeStyle = color; ctx.lineWidth = 2.4; ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(tToX(pts[0].t), degToY(pts[0].deg));
+  for(let i=0;i<pts.length-1;i++){
+    const p0=pts[i>0?i-1:0], p1=pts[i], p2=pts[i+1], p3=pts[i+2<pts.length?i+2:i+1];
+    for(let s=1;s<=12;s++){
+      const u=s/12, u2=u*u, u3=u2*u;
+      const t = 0.5*((2*p1.t)+(-p0.t+p2.t)*u+(2*p0.t-5*p1.t+4*p2.t-p3.t)*u2+(-p0.t+3*p1.t-3*p2.t+p3.t)*u3);
+      const d = 0.5*((2*p1.deg)+(-p0.deg+p2.deg)*u+(2*p0.deg-5*p1.deg+4*p2.deg-p3.deg)*u2+(-p0.deg+3*p1.deg-3*p2.deg+p3.deg)*u3);
+      ctx.lineTo(tToX(t), degToY(d));
+    }
+  }
+  ctx.stroke();
+}
+
+function drawPoints(pts, color){
+  pts.forEach(p=>{
+    ctx.fillStyle = color; ctx.strokeStyle = "#0b0f14"; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(tToX(p.t), degToY(p.deg), 7, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  });
+}
+
 function curPts(name){ return state.stage==="flt" ? axes[name].filtered : axes[name].points; }
 
-function drawEaseRegions(){
-  if(!state.ease) return;
-  const pts = curPts(state.easeTarget);
-  if(pts.length<2) return;
-  const t0=pts[0].t, t1=pts[pts.length-1].t, span=t1-t0||1;
-  const xs = tToX(t0 + state.startPct/100*span);
-  const xe = tToX(t0 + state.endPct/100*span);
-  const rgb = {pan:"56,189,248",tilt:"245,165,36",zoom:"167,139,250",focus:"251,113,133"}[state.easeTarget];
 function drawEaseRegions(){
   if(!state.ease) return;
   const target = AXIS_NAMES.find(n=>state.easeAxes[n]);
@@ -87,6 +795,427 @@ function drawEaseRegions(){
   const c = `rgba(${rgb},.09)`;
   ctx.fillStyle = c;
   ctx.fillRect(tToX(t0), plot.y, xs-tToX(t0), plot.h);
+  ctx.fillRect(xe, plot.y, tToX(t1)-xe, plot.h);
+}
+
+function degAt(pts, t){
+  if(!pts.length) return 0;
+  if(t<=pts[0].t) return pts[0].deg;
+  if(t>=pts[pts.length-1].t) return pts[pts.length-1].deg;
+  for(let i=0;i<pts.length-1;i++){
+    if(t>=pts[i].t && t<=pts[i+1].t){
+      const f=(t-pts[i].t)/((pts[i+1].t-pts[i].t)||1);
+      return pts[i].deg + f*(pts[i+1].deg-pts[i].deg);
+    }
+  }
+  return pts[pts.length-1].deg;
+}
+
+function pathRange(){
+  const first=Math.min(...AXIS_NAMES.map(n=>axes[n].points[0]?.t ?? T_MAX));
+  const last=Math.max(...AXIS_NAMES.map(n=>axes[n].points.length ? axes[n].points[axes[n].points.length-1].t : 0));
+  return [Number.isFinite(first)?first:0, last||T_MAX];
+}
+
+// 공통: 시간 커서 막대 그리기 (opt: {dash, thin, head})
+function drawCursor(t, color, opt){
+  opt = opt || {};
+  const x=tToX(t);
+  ctx.strokeStyle=color; ctx.lineWidth = opt.thin ? 1.3 : 2.4;
+  ctx.setLineDash(opt.dash || []);
+  ctx.beginPath(); ctx.moveTo(x,plot.y); ctx.lineTo(x,plot.y+plot.h); ctx.stroke();
+  ctx.setLineDash([]);
+  if(opt.head || opt.headOutline){
+    const top=plot.y-21, w = opt.headOutline?9:12;
+    ctx.beginPath();
+    ctx.moveTo(x-w, top); ctx.lineTo(x+w, top); ctx.lineTo(x+w, top+11);
+    ctx.lineTo(x, top+20); ctx.lineTo(x-w, top+11); ctx.closePath();
+    if(opt.headOutline){ ctx.setLineDash([]); ctx.strokeStyle=color; ctx.lineWidth=1.6; ctx.stroke(); }
+    else { ctx.fillStyle=color; ctx.fill(); }
+  }
+  AXIS_NAMES.forEach(name=>{
+    const d=degAt(curPts(name), t);
+    ctx.fillStyle = COL[name]; ctx.strokeStyle=color; ctx.lineWidth = opt.thin?1.4:2;
+    ctx.beginPath(); ctx.arc(x, degToY(d), opt.thin?4:6.5, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  });
+}
+
+// 모터 위치 바(빨간 대시선, 가늘게, 테두리 핸들) — 항상, 모든 모드에서 표시.
+function drawMotorBar(){ drawCursor(motor.t, "#ef4444", { dash:[9,3], thin:true, headOutline:true }); }
+
+// 플레이헤드(연두 실선) — 모든 모드에서 표시, 드래그/조그 가능. 상단 핸들 + 양 옆 조그버튼.
+function drawPlayhead(){
+  drawCursor(play.t, "#a3e635", { head:true });
+  drawJog(tToX(play.t));
+}
+
+// 조그 버튼(‹ ›) — 플레이헤드 핸들 양 옆. 호버 시 글로우.
+let jogRects=null, jogHover=null, jogStep=500;
+function rrect(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+}
+function drawJog(x){
+  const cy=plot.y-11, h=22, w=22, gap=15;
+  const L={x:x-gap-w, y:cy-h/2, w, h};
+  const R={x:x+gap,    y:cy-h/2, w, h};
+  jogRects={left:L, right:R};
+  [["left","‹",L],["right","›",R]].forEach(([key,sym,b])=>{
+    const hot = jogHover===key;
+    ctx.save();
+    if(hot){ ctx.shadowColor="#a3e635"; ctx.shadowBlur=12; }
+    ctx.fillStyle  = hot ? "rgba(163,230,53,.30)" : "rgba(13,20,28,.9)";
+    ctx.strokeStyle= hot ? "#a3e635" : "#46586c";
+    ctx.lineWidth=1.2; rrect(b.x,b.y,b.w,b.h,6); ctx.fill(); ctx.stroke();
+    ctx.shadowBlur=0;
+    ctx.fillStyle = hot ? "#e6ffbf" : "#aebfcf";
+    ctx.font="bold 20px Segoe UI"; ctx.textAlign="center"; ctx.textBaseline="middle";
+    ctx.fillText(sym, b.x+b.w/2, b.y+b.h/2+1);
+    ctx.restore();
+  });
+  ctx.textBaseline="alphabetic"; ctx.textAlign="center";
+}
+function jogHit(mx,my){
+  if(!jogRects) return null;
+  for(const k of ["left","right"]){
+    const b=jogRects[k];
+    if(mx>=b.x && mx<=b.x+b.w && my>=b.y && my<=b.y+b.h) return k;
+  }
+  return null;
+}
+function playheadHit(mx,my){
+  const x=tToX(play.t);
+  if(my>=plot.y-24 && my<=plot.y+16 && Math.abs(mx-x)<=14) return true;  // 상단 핸들(크게)
+  if(Math.abs(mx-x)<=7) return true;                                      // 막대 전체(모든 모드)
+  return false;
+}
+// 플레이헤드를 가까운 4축 경로 포인트(시간축)에 스냅
+function snapPlayheadTime(t){
+  const px = tToX(t);
+  let best=t, bestD=10;   // 픽셀 임계값
+  AXIS_NAMES.forEach(name=>{
+    curPts(name).forEach(p=>{
+      const d=Math.abs(tToX(p.t)-px);
+      if(d<bestD){ bestD=d; best=p.t; }
+    });
+  });
+  return best;
+}
+function setPlayheadT(t, snap){
+  const [a,b]=pathRange();
+  if(snap) t = snapPlayheadTime(t);
+  play.t = Math.max(a, Math.min(b, t));
+  play.synced = Math.abs(play.t-motor.t) < 1;
+  updatePlayBtn(); resetPlayUI(); draw();
+}
+function jogPlayhead(key){
+  if(play.on) pausePlay();
+  setPlayheadT(play.t + (key==="right"?1:-1)*jogStep);   // 조그는 고정 스텝(스냅 미적용)
+}
+function jogLabel(){
+  const el=$("jogScaleInput"), val=$("jogScaleVal");
+  if(!el) return;
+  const sec = jogStep/1000;
+  el.value = sec;
+  if(val) val.textContent = sec.toFixed(2)+"s";
+}
+
+function draw(){
+  drawGrid();
+  drawEaseRegions();
+  if (state.stage === "raw"){
+    AXIS_NAMES.forEach(n=>drawPolyline(axes[n].points, COL[n]));
+    AXIS_NAMES.forEach(n=>drawPoints(axes[n].points, COL[n]));
+  } else if (state.stage === "flt"){
+    ctx.globalAlpha=.25; AXIS_NAMES.forEach(n=>drawPolyline(axes[n].raw, COL[n])); ctx.globalAlpha=1;
+    AXIS_NAMES.forEach(n=>drawSpline(axes[n].filtered, COL[n]));
+  } else if (state.stage === "edit"){
+    ctx.globalAlpha=.20; AXIS_NAMES.forEach(n=>drawPolyline(axes[n].raw, COL[n])); ctx.globalAlpha=1;
+    AXIS_NAMES.forEach(n=>drawPolyline(axes[n].points, COL[n]));
+    AXIS_NAMES.forEach(n=>drawPoints(axes[n].points, COL[n]));
+  }
+  drawMotorBar();
+  drawPlayhead();
+}
+
+// ---------- 포인트 편집 ----------
+let drag = null; // {axis, idx}
+function editable(){ return state.stage==="raw" || state.stage==="edit"; }
+
+function hitTest(mx,my){
+  let best=null, bestD=22*22;
+  AXIS_NAMES.forEach(name=>{
+    axes[name].points.forEach((p,i)=>{
+      const dx=tToX(p.t)-mx, dy=degToY(p.deg)-my, d=dx*dx+dy*dy;
+      if(d<bestD){ bestD=d; best={axis:name, idx:i}; }
+    });
+  });
+  return best;
+}
+
+// ---------- Undo/Redo (포인트 편집, 최대 20단계) ----------
+function snapshot(){ return Object.fromEntries(AXIS_NAMES.map(n=>[n,axes[n].points.map(p=>({...p}))])); }
+function restore(s){ AXIS_NAMES.forEach(n=>axes[n].points=(s[n]||[]).map(p=>({...p}))); }
+function pushHistory(prev){
+  undoStack.push(prev); if(undoStack.length>HISTORY_MAX) undoStack.shift();
+  redoStack=[]; updateUndoRedo();
+}
+function updateUndoRedo(){
+  $("undoBtn").style.opacity = undoStack.length?1:.4;
+  $("redoBtn").style.opacity = redoStack.length?1:.4;
+}
+function doUndo(){
+  if(!undoStack.length) return;
+  redoStack.push(snapshot());
+  restore(undoStack.pop());
+  markDirty();
+  if(state.stage==="flt") computeFiltered();
+  updateUndoRedo(); draw();
+}
+function doRedo(){
+  if(!redoStack.length) return;
+  undoStack.push(snapshot());
+  restore(redoStack.pop());
+  markDirty();
+  if(state.stage==="flt") computeFiltered();
+  updateUndoRedo(); draw();
+}
+
+let dragPrev=null, dragMoved=false, phDrag=false;
+cv.addEventListener("pointerdown", e=>{
+  e.preventDefault();
+  cv.setPointerCapture?.(e.pointerId);
+  const r=cv.getBoundingClientRect();
+  const mx=e.clientX-r.left, my=e.clientY-r.top;
+  // 1) 조그 버튼
+  const jb = jogHit(mx,my);
+  if(jb){ jogPlayhead(jb); return; }
+  // 2) 포인트 편집 우선(편집 가능 모드에서 포인트를 잡으면 편집)
+  if(editable()){
+    const hit = hitTest(mx, my);
+    if(hit){
+      if(state.pinEnds){
+        const last = axes[hit.axis].points.length-1;
+        if(hit.idx===0 || hit.idx===last){ toast("IN/OUT 고정됨 — 끝점 이동 불가"); return; }
+      }
+      drag = hit; dragPrev=snapshot(); dragMoved=false; return;
+    }
+  }
+  // 3) 플레이헤드 드래그(핸들/막대)
+  if(playheadHit(mx,my)){ phDrag=true; if(play.on) pausePlay(); return; }
+});
+// 호버 글로우(조그 버튼) + 플레이헤드 롤오버 커서 변경
+cv.addEventListener("pointermove", e=>{
+  if(drag || phDrag) return;
+  const r=cv.getBoundingClientRect();
+  const mx=e.clientX-r.left, my=e.clientY-r.top;
+  const h = jogHit(mx,my);
+  if(h!==jogHover){ jogHover=h; draw(); }
+  cv.style.cursor = h ? "pointer" : (playheadHit(mx,my) ? "ew-resize" : "crosshair");
+});
+window.addEventListener("pointermove", e=>{
+  if(phDrag){
+    e.preventDefault();
+    const r=cv.getBoundingClientRect();
+    setPlayheadT(xToT(e.clientX-r.left), true);   // 드래그 시 경로 포인트에 스냅
+    return;
+  }
+  if(!drag) return;
+  e.preventDefault();
+  dragMoved=true;
+  const r=cv.getBoundingClientRect();
+  let t = xToT(e.clientX-r.left), d = yToDeg(e.clientY-r.top);
+  if(state.snap){
+    const sx=Math.max(200,2500*state.gridScaleX), sy=Math.max(4.5,45*state.gridScaleY);
+    t = Math.round(t/sx)*sx; d = Math.round(d/sy)*sy;
+  }
+  t = Math.max(0, Math.min(T_MAX, t));
+  d = Math.max(-DEG_MAX, Math.min(DEG_MAX, d));
+  const a = axes[drag.axis];
+  const isEnd = drag.idx===0 || drag.idx===a.points.length-1;
+  a.points[drag.idx] = { t, deg: d };
+  // 끝점 동기화
+  if(state.match && isEnd){
+    AXIS_NAMES.filter(n=>n!==drag.axis).forEach(n=>{
+      const other=axes[n], oi=drag.idx===0?0:other.points.length-1;
+      if(other.points[oi]) other.points[oi].t=t;
+    });
+  }
+  draw();
+});
+function endPointerEdit(){
+  if(drag && dragMoved && dragPrev){ pushHistory(dragPrev); markDirty(); }
+  drag=null; dragPrev=null; phDrag=false;
+}
+window.addEventListener("pointerup", endPointerEdit);
+window.addEventListener("pointercancel", endPointerEdit);
+
+// ---------- 비례 스케일링 (양축 적용, 경계 도달 시 제한) ----------
+function curMaxAbs(mode){
+  let m=0;
+  AXIS_NAMES.filter(n=>state.selectedAxes[n]).forEach(name=> axes[name].points.forEach(p=>{
+    m = Math.max(m, mode==="x" ? p.t : Math.abs(p.deg));
+  }));
+  return m;
+}
+function applyScale(ratio, mode){
+  AXIS_NAMES.filter(n=>state.selectedAxes[n]).forEach(name=> axes[name].points.forEach(p=>{
+    if(mode==="x") p.t = p.t*ratio; else p.deg = p.deg*ratio;
+  }));
+}
+// 요청 배율을 경계(±끝점)에 닿으면 더 못 키우도록 캡
+function cappedRatio(v, prev, mode){
+  let ratio = v/prev;
+  if(ratio>1){
+    const m=curMaxAbs(mode);
+    const bound = mode==="x" ? T_MAX : DEG_MAX;
+    const allowed = m>0 ? bound/m : Infinity;
+    if(ratio>allowed) ratio=allowed;
+  }
+  return ratio;
+}
+
+// ---------- UI 바인딩 ----------
+const $ = id => document.getElementById(id);
+function toast(msg){ const t=$("toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),1600); }
+
+function updateButtons(){
+  const mb=$("mainBtn");
+  if(state.stage==="flt"){ mb.textContent="EDIT"; mb.classList.add("edit"); }
+  else { mb.textContent="SMOOTH"; mb.classList.remove("edit"); }
+  const names={raw:"RAW MP", flt:"FLT MP", edit:"재편집 (직선)"};
+  $("stageTag").textContent = names[state.stage];
+  const hints={
+    raw:"RAW MP: 포인트를 마우스·터치로 드래그해 경로를 편집하세요.",
+    flt:"FLT MP: 칼만 + S-Curve 추종 모델로 정형된 곡선입니다. EDIT으로 재편집.",
+    edit:"재편집: 직선 구간의 포인트를 드래그한 뒤 SMOOTH로 다시 다듬으세요."
+  };
+  $("hint").textContent = hints[state.stage];
+  // SUPER SMOOTH 스위치는 재편집(EDIT) 단계에서만 활성화
+  const ss=$("superSmooth"), ssDis = state.stage!=="edit";
+  ss.classList.toggle("disabled", ssDis);
+  if(ssDis){ state.superSmooth=false; ss.classList.remove("on"); }
+  if(typeof updatePlayBtn==="function") updatePlayBtn();
+}
+
+$("mainBtn").addEventListener("click", ()=>{
+  if(state.stage==="flt"){
+    // EDIT: 곡선 → 직선(필터된 포인트를 편집셋으로)
+    AXIS_NAMES.forEach(n=> axes[n].points = axes[n].filtered.map(p=>({t:p.t,deg:p.deg})));
+    state.stage="edit";
+    if(typeof resetPlay==="function") resetPlay();
+  } else {
+    // SMOOTH
+    const wasSuper = state.superSmooth;
+    computeFiltered();
+    state.stage="flt";
+    markDirty();
+    if(wasSuper){ state.superSmooth=false; $("superSmooth").classList.remove("on"); toast("SUPER SMOOTH: 완전 S-Curve 변환"); }
+    else toast(state.ai ? "SMOOTH 적용 (칼만 + S-Curve) · AI 모드" : "SMOOTH 적용 (칼만 + S-Curve)");
+  }
+  updateButtons(); draw();
+});
+
+$("confirmBtn").addEventListener("click", ()=>{
+  if(!state.dirty){ toast("변경 사항이 없어 저장하지 않았습니다"); return; }
+  const idx = state.presets.findIndex(p=>p===null);
+  if(idx<0){ toast("프리셋 10개가 모두 찼습니다 (삭제 후 저장)"); return; }
+  computeFiltered();
+  state.presets[idx] = Object.fromEntries(AXIS_NAMES.map(n=>[n,axes[n].filtered.map(p=>({...p}))]));
+  state.dirty = false;
+  state.loadedPreset = idx;
+  persistPresets();
+  renderPresets();
+  toast("CST MP 저장 → 프리셋 #" + (idx+1));
+});
+
+function renderPresets(){
+  const c=$("presets");
+  c.classList.toggle("delmode", state.deleteMode);
+  c.innerHTML="";
+  for(let i=0;i<10;i++){
+    const d=document.createElement("div");
+    let cls="preset"+(state.presets[i]?" lit":"");
+    if(i===state.loadedPreset && state.presets[i]) cls+=" loaded";
+    d.className=cls;
+    d.textContent=(i+1);
+    if(state.presets[i]) d.addEventListener("click", ()=>{
+      if(state.deleteMode) deletePreset(i); else loadPreset(i);
+    });
+    c.appendChild(d);
+  }
+}
+
+function deletePreset(i){
+  if(!state.presets[i]) return;
+  state.presets[i]=null;
+  persistPresets();
+  if(state.loadedPreset===i){ state.loadedPreset=-1; state.dirty=true; }
+  renderPresets();
+  toast("프리셋 #"+(i+1)+" 삭제");
+}
+
+function loadPreset(i){
+  const p=state.presets[i]; if(!p) return;
+  stopPlay();
+  AXIS_NAMES.forEach(n=>{
+    const src=p[n] || constantPath(0);
+    axes[n].filtered=src.map(q=>({...q}));
+    axes[n].points=src.map(q=>({...q}));
+    axes[n].raw=src.map(q=>({...q}));
+  });
+  state.stage="flt";
+  // 핀이 켜져 있으면 불러온 프리셋의 끝점으로 재설정(이전 경로의 IN/OUT을 덮어쓰지 않음)
+  if(state.pinEnds) capturePins();
+  state.loadedPreset = i;
+  state.dirty = false;
+  undoStack=[]; redoStack=[]; updateUndoRedo();
+  resetMoveUI();
+  const [a]=pathRange(); play.t=a; motor.t=a; play.synced=false; resetPlayUI();
+  renderPresets();
+  updateButtons(); draw();
+  toast("프리셋 #"+(i+1)+" 호출 — SYNC 후 재생");
+}
+
+// 토글 스위치
+function toggleBtn(id, key){
+  $(id).addEventListener("click", function(){
+    this.blur();
+    state[key]=!state[key];
+    this.classList.toggle("on", state[key]);
+    draw();
+  });
+}
+toggleBtn("matchBtn","match");
+
+// 4축 작업 선택 — 스케일링/동기화 같은 공통 작업의 적용 대상을 명시
+function resetScaleUI(){
+  state.scaleXPrev=1; state.scaleYPrev=1;
+  $("scaleX").value=1; $("scaleY").value=1;
+  $("scaleXVal").textContent="1.00x"; $("scaleYVal").textContent="1.00x";
+}
+document.querySelectorAll("#axisPicks .axis-pick").forEach(btn=>{
+  btn.setAttribute("aria-pressed","true");
+  btn.title=AXIS_LABEL[btn.dataset.axis]+" 변환 적용";
+  btn.addEventListener("click",()=>{
+    const n=btn.dataset.axis;
+    state.selectedAxes[n]=!state.selectedAxes[n];
+    if(!AXIS_NAMES.some(a=>state.selectedAxes[a])) state.selectedAxes[n]=true;
+    btn.classList.toggle("on",state.selectedAxes[n]);
+    btn.setAttribute("aria-pressed",String(state.selectedAxes[n]));
+    resetScaleUI();
+  });
+});
+document.querySelectorAll("#moveAxisPicks .axis-pick").forEach(btn=>{
+  btn.setAttribute("aria-pressed","true");
+  btn.title=AXIS_LABEL[btn.dataset.axis]+" 이동 적용";
+  btn.addEventListener("click",()=>{
+    const n=btn.dataset.axis;
+    state.moveAxes[n]=!state.moveAxes[n];
+    if(!AXIS_NAMES.some(a=>state.moveAxes[a])) state.moveAxes[n]=true;
+    btn.classList.toggle("on",state.moveAxes[n]);
+    btn.setAttribute("aria-pressed",String(state.moveAxes[n]));
     resetMoveUI();
   });
 });
@@ -98,3 +1227,480 @@ document.querySelectorAll("#easeAxisPicks .axis-pick").forEach(btn=>{
     state.easeAxes[n]=!state.easeAxes[n];
     if(!AXIS_NAMES.some(a=>state.easeAxes[a])) state.easeAxes[n]=true;
     btn.classList.toggle("on",state.easeAxes[n]);
+    btn.setAttribute("aria-pressed",String(state.easeAxes[n]));
+    markDirty();
+    if(state.stage==="flt") computeFiltered();
+    draw();
+  });
+});
+// 시작/끝 점 고정 (ON 시 스케일링·오프셋 비활성, IN/OUT 절대 유지)
+function updatePinUI(){
+  const dis = state.pinEnds;
+  ["scaleX","scaleY","moveX","moveY"].forEach(id=>{ $(id).disabled = dis; });
+  $("propScaleWrap").classList.toggle("dimmed", dis);
+  $("offsetGroup").classList.toggle("dimmed", dis);
+}
+$("pinBtn").addEventListener("click", function(){
+  this.blur();
+  state.pinEnds = !state.pinEnds;
+  this.classList.toggle("on", state.pinEnds);
+  if(state.pinEnds){ capturePins(); enforcePinsPoints(); if(state.stage==="flt") computeFiltered(); }
+  updatePinUI();
+  draw();
+  toast(state.pinEnds ? "IN/OUT 포인트 고정 — 스케일링·오프셋 비활성화" : "포인트 고정 해제");
+});
+// AI 토글 (헤더 배지 갱신)
+$("aiBtn").addEventListener("click", function(){
+  this.blur();
+  state.ai=!state.ai;
+  this.classList.toggle("on", state.ai);
+  $("aiBadge").textContent = "4 AXIS · AI: "+(state.ai?"ON":"OFF")+" · ML 미적용";
+});
+// SUPER SMOOTH (EDIT 단계에서만 활성)
+$("superSmooth").addEventListener("click", function(){
+  if(this.classList.contains("disabled")) return;
+  this.blur();
+  state.superSmooth=!state.superSmooth;
+  this.classList.toggle("on", state.superSmooth);
+});
+// 메뉴 호버 토스트 팁
+function hoverTip(id,msg){ const el=$(id); if(el) el.addEventListener("mouseenter", ()=>toast(msg)); }
+hoverTip("easeGroup","영역 %는 선택된 경로의 시작/끝 포인트 구간 기준. '선택 영역 완화' ON 시 해당 구간을 전체 S-Curve 모델로 추가 완화합니다.");
+hoverTip("smoothOptGroup","SUPER SMOOTH: 재편집 단계에서 체크 후 SMOOTH 시 칼만 무시·완전 S-Curve로 변환. AI: 현재 ON/OFF 동작만(ML 학습값 미적용).");
+$("easeBtn").addEventListener("click", function(){
+  this.blur();
+  state.ease=!state.ease;
+  this.classList.toggle("on", state.ease);
+  markDirty();
+  if(state.stage==="flt") computeFiltered();
+  draw();
+});
+
+// 슬라이더 / 입력
+$("fltStrength").addEventListener("input", e=>{ state.fltStrength=+e.target.value; $("fltStrengthVal").textContent=e.target.value+"%"; markDirty(); if(state.stage==="flt"){computeFiltered();draw();} });
+$("gridScaleX").addEventListener("input", e=>{ state.gridScaleX=+e.target.value; $("gridScaleXVal").textContent=(+e.target.value).toFixed(1)+"x"; draw(); });
+$("gridScaleY").addEventListener("input", e=>{ state.gridScaleY=+e.target.value; $("gridScaleYVal").textContent=(+e.target.value).toFixed(1)+"x"; draw(); });
+$("snap").addEventListener("change", e=> state.snap=e.target.checked);
+$("scaleX").addEventListener("input", e=>{
+  const ratio = cappedRatio(+e.target.value, state.scaleXPrev, "x");
+  const v = state.scaleXPrev * ratio;
+  e.target.value = v; $("scaleXVal").textContent=v.toFixed(2)+"x";
+  if(ratio!==1) markDirty();
+  applyScale(ratio,"x"); state.scaleXPrev=v;
+  if(state.stage==="flt"){computeFiltered();} draw();
+});
+$("scaleY").addEventListener("input", e=>{
+  const ratio = cappedRatio(+e.target.value, state.scaleYPrev, "y");
+  const v = state.scaleYPrev * ratio;
+  e.target.value = v; $("scaleYVal").textContent=v.toFixed(2)+"x";
+  if(ratio!==1) markDirty();
+  applyScale(ratio,"y"); state.scaleYPrev=v;
+  if(state.stage==="flt"){computeFiltered();} draw();
+});
+
+// ---------- 경로 이동 (선택 축 전체 평행이동, 공통 경계 내로 캡) ----------
+function moveTargets(){ return AXIS_NAMES.filter(n=>state.moveAxes[n]); }
+function axisMoveBounds(name, mode){
+  const pts = axes[name].points;
+  if(!pts.length) return null;
+  let lo=Infinity, hi=-Infinity;
+  pts.forEach(p=>{ const v = mode==="x"?p.t:p.deg; lo=Math.min(lo,v); hi=Math.max(hi,v); });
+  const max = mode==="x"? T_MAX : DEG_MAX;
+  const min = mode==="x"? 0 : -DEG_MAX;
+  return { min:min-lo, max:max-hi };
+}
+function clampMoveDelta(names, mode, delta){
+  let lo=-Infinity, hi=Infinity;
+  names.forEach(name=>{
+    const b=axisMoveBounds(name, mode);
+    if(!b) return;
+    lo=Math.max(lo,b.min);
+    hi=Math.min(hi,b.max);
+  });
+  if(!Number.isFinite(lo)) lo=0;
+  if(!Number.isFinite(hi)) hi=0;
+  return Math.max(lo, Math.min(hi, delta));
+}
+function applyMove(names, mode, delta){
+  names.forEach(name=>{
+    axes[name].points.forEach(p=>{ if(mode==="x") p.t+=delta; else p.deg+=delta; });
+  });
+}
+function bindMove(id, mode, key, isX){
+  $(id).addEventListener("input", e=>{
+    const names = moveTargets();
+    const requested = +e.target.value - state.movePrev[key];
+    const applied = clampMoveDelta(names, mode, requested);
+    applyMove(names, mode, applied);
+    state.movePrev[key] += applied;
+    e.target.value = state.movePrev[key];
+    $(id+"Val").textContent = isX ? (state.movePrev[key]/1000).toFixed(1)+"s" : Math.round(state.movePrev[key])+"°";
+    if(applied!==0) markDirty();
+    if(state.stage==="flt") computeFiltered();
+    draw();
+  });
+}
+bindMove("moveX","x","X",true);
+bindMove("moveY","y","Y",false);
+function resetMoveUI(){
+  state.movePrev={X:0,Y:0};
+  $("moveX").value=0; $("moveY").value=0;
+  $("moveXVal").textContent="0.0s";
+  $("moveYVal").textContent="0°";
+}
+
+// 이징 적용 축은 #easeAxisPicks의 P/T/Z/F 복수 선택 상태(state.easeAxes)를 따른다.
+
+// Undo / Redo
+$("undoBtn").addEventListener("click", doUndo);
+$("redoBtn").addEventListener("click", doRedo);
+
+// 프리셋 삭제 모드
+$("delBtn").addEventListener("click", function(){
+  this.blur();
+  state.deleteMode=!state.deleteMode;
+  this.classList.toggle("on", state.deleteMode);
+  renderPresets();
+});
+
+// 구간 완만화 실행 (EDIT 모드 전용, 누를수록 점차 S-Curve로 완만)
+function applyRegionEaseStep(){
+  AXIS_NAMES.filter(n=>state.easeAxes[n]).forEach(name=>{
+    const pts = axes[name].points;
+    if(pts.length>=3) sCurveRegion(pts, 0.4);
+  });
+}
+$("easeRunBtn").addEventListener("click", ()=>{
+  if(state.stage!=="edit"){ toast("구간 완만화는 EDIT 모드에서만 가능합니다"); return; }
+  const before = snapshot();
+  applyRegionEaseStep();
+  pushHistory(before); markDirty();
+  draw();
+  toast(AXIS_NAMES.filter(n=>state.easeAxes[n]).map(n=>AXIS_LABEL[n]).join("/")+" 구간 완만화");
+});
+$("startPct").addEventListener("input", e=>{ state.startPct=+e.target.value; $("startPctVal").textContent=e.target.value+"%"; markDirty(); if(state.stage==="flt")computeFiltered(); draw(); });
+$("endPct").addEventListener("input", e=>{ state.endPct=+e.target.value; $("endPctVal").textContent=e.target.value+"%"; markDirty(); if(state.stage==="flt")computeFiltered(); draw(); });
+function clampDensity(v){ return Math.max(0.2, Math.min(1, +v||0.4)); }
+function bindDensity(id, name){
+  const el=$(id), val=$(id+"Val");
+  function sync(){
+    const v=clampDensity(el.value);
+    axes[name].density=v;
+    el.value=v.toFixed(1);
+    if(val) val.textContent=v.toFixed(1)+"/s";
+  }
+  el.addEventListener("input", sync);
+  el.addEventListener("change", sync);
+  sync();
+}
+bindDensity("panDensity","pan");
+bindDensity("tiltDensity","tilt");
+bindDensity("zoomDensity","zoom");
+bindDensity("focusDensity","focus");
+document.querySelectorAll(".density-stepper .stepbtn").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    btn.blur();
+    const targetId = btn.closest(".density-stepper")?.dataset.target;
+    const el = targetId ? $(targetId) : null;
+    if(!el) return;
+    const step = +btn.dataset.step || 0;
+    const next = clampDensity(Math.round((+el.value + step) * 10) / 10);
+    el.value = next.toFixed(1);
+    el.dispatchEvent(new Event("input", { bubbles:true }));
+  });
+});
+$("csvFps").addEventListener("input", e=>{ $("csvFpsVal").textContent=csvFps()+"fps"; });
+// 포인트 재생성: 현재 경로 형상(폴리라인)을 유지한 채 지정 밀도로 리샘플
+function resamplePoints(){
+  AXIS_NAMES.forEach(name=>{
+    const a=axes[name], pts=a.points;
+    if(pts.length<2) return;
+    const t0=pts[0].t, t1=pts[pts.length-1].t;
+    const dens=Math.max(0.2, Math.min(1, a.density));
+    const n=Math.max(2, Math.round(dens*(t1-t0)/1000)+1);
+    const out=[];
+    for(let i=0;i<n;i++){ const t=t0+(t1-t0)*i/(n-1); out.push({t, deg: degAt(pts, t)}); }
+    out[0]={t:pts[0].t, deg:pts[0].deg};                       // 끝점 정확히 유지
+    out[n-1]={t:pts[pts.length-1].t, deg:pts[pts.length-1].deg};
+    a.points=out;
+  });
+}
+$("resampleBtn").addEventListener("click", ()=>{
+  const before=snapshot();
+  resamplePoints();
+  if(state.pinEnds) enforcePinsPoints();
+  pushHistory(before); markDirty();
+  if(state.stage==="flt") computeFiltered();
+  draw();
+  toast("포인트 재생성 — 형상 유지, 밀도 적용");
+});
+$("regenBtn").addEventListener("click", ()=>{
+  resetScaleUI();
+  undoStack=[]; redoStack=[]; updateUndoRedo();
+  resetMoveUI();
+  state.loadedPreset=-1; markDirty();
+  regenAll();
+  if(state.pinEnds){ capturePins(); }   // 재생성된 경로의 끝점을 새 IN/OUT으로 고정
+  const [a]=pathRange(); play.t=a; motor.t=a; play.synced=false; play.dir=1; play.on=false; resetPlayUI();
+  renderPresets(); toast("RAW MP 재생성");
+});
+
+// ---------- CSV 입출력 ----------
+// v2 표준: frame,time_s,pan_deg,tilt_deg,zoom_deg,focus_deg
+function pathFinal(name){ const a=axes[name]; return a.filtered.length ? a.filtered : a.points; }
+function finalPathSet(){ return Object.fromEntries(AXIS_NAMES.map(n=>[n,pathFinal(n)])); }
+function csvFps(){ return Math.max(1, Math.min(120, Math.round(+$("csvFps").value)||30)); }
+function buildCsv(paths, fps){
+  if(!AXIS_NAMES.some(n=>(paths[n]?.length||0)>=2)) return null;
+  const t0=Math.min(...AXIS_NAMES.map(n=>paths[n]?.[0]?.t ?? T_MAX));
+  const t1=Math.max(...AXIS_NAMES.map(n=>paths[n]?.[paths[n].length-1]?.t ?? 0));
+  const dur=Math.max(0,t1-t0), nFrames=Math.max(1,Math.ceil(dur/1000*fps));
+  let csv="frame,time_s,pan_deg,tilt_deg,zoom_deg,focus_deg\n";
+  for(let f=0;f<=nFrames;f++){
+    const t=f===nFrames?t1:Math.min(t1,t0+(f/fps)*1000);
+    const values=AXIS_NAMES.map(n=>degAt(paths[n]||[],t).toFixed(4));
+    csv += [f,((t-t0)/1000).toFixed(4),...values].join(",")+"\n";
+  }
+  return {csv,frames:nFrames+1};
+}
+function downloadCsv(filename, csv){
+  const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href=url; a.download=filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1500);
+}
+function csvExport(){
+  const fps=csvFps();
+  const r=buildCsv(finalPathSet(),fps);
+  if(!r){ toast("내보낼 경로가 없습니다"); return; }
+  downloadCsv("cinehead_4axis_path_"+fps+"fps.csv",r.csv);
+  toast("4축 CSV 내보내기 ("+r.frames+"프레임 @ "+fps+"fps)");
+}
+// 프리셋 개별 내보내기(각각 별도 파일) — 10개 중첩 방지
+function exportAllPresets(){
+  const fps=csvFps();
+  const idxs=state.presets.map((p,i)=>p?i:-1).filter(i=>i>=0);
+  if(!idxs.length){ toast("저장된 프리셋이 없습니다"); return; }
+  idxs.forEach((i,k)=> setTimeout(()=>{
+    const p=state.presets[i];
+    const paths=Object.fromEntries(AXIS_NAMES.map(n=>[n,p[n]||constantPath(0)]));
+    const r=buildCsv(paths,fps);
+    if(r) downloadCsv("cinehead_4axis_preset"+(i+1)+"_"+fps+"fps.csv",r.csv);
+  }, k*350));   // 순차 다운로드(브라우저 다중 다운로드)
+  toast(idxs.length+"개 프리셋 개별 CSV 내보내기 @ "+fps+"fps");
+}
+// 형태보존 단순화(RDP, 값축 오차 기준) — 조밀한 프레임 데이터를 쉐잎 유지하며 감축
+function simplifyValue(pts, eps){
+  const n=pts.length; if(n<3) return pts.slice();
+  const keep=new Array(n).fill(false); keep[0]=keep[n-1]=true;
+  const stack=[[0,n-1]];
+  while(stack.length){
+    const [a,b]=stack.pop(); if(b<=a+1) continue;
+    const ta=pts[a].t, da=pts[a].deg, span=(pts[b].t-ta)||1, dd=pts[b].deg-da;
+    let maxE=-1, idx=-1;
+    for(let i=a+1;i<b;i++){
+      const pred=da + dd*((pts[i].t-ta)/span);   // 같은 시간에서의 직선 보간값
+      const e=Math.abs(pts[i].deg-pred);
+      if(e>maxE){ maxE=e; idx=i; }
+    }
+    if(maxE>eps){ keep[idx]=true; stack.push([a,idx]); stack.push([idx,b]); }
+  }
+  const out=[]; for(let i=0;i<n;i++) if(keep[i]) out.push({t:pts[i].t, deg:pts[i].deg});
+  return out;
+}
+function simplifyCapped(pts, maxN){
+  let eps=0.2, out=simplifyValue(pts,eps), guard=0;
+  while(out.length>maxN && guard++<40){ eps*=1.5; out=simplifyValue(pts,eps); }
+  return out;
+}
+// 가져오기: v2 4축과 기존 v1 2축 CSV를 모두 허용. 누락 축은 0° 상수 경로로 생성.
+function csvImport(text){
+  const fps=Math.max(1,Math.min(120,Math.round(+$("csvFps").value)||30));
+  const lines=text.split(/\r?\n/).map(l=>l.trim()).filter(l=>l.length&&!l.startsWith("#"));
+  if(!lines.length){toast("빈 파일입니다");return;}
+  let start=0,iTime=-1,iFrame=-1;
+  const idx={pan:-1,tilt:-1,zoom:-1,focus:-1};
+  const headLine=lines[0].replace(/[eE][-+]?\d+/g,"");
+  if(/[a-zA-Z]/.test(headLine)){
+    lines[0].split(",").map(s=>s.trim().toLowerCase()).forEach((c,i)=>{
+      if(idx.pan<0&&(c.includes("pan")||c.includes("azimuth"))) idx.pan=i;
+      else if(idx.tilt<0&&(c.includes("tilt")||c.includes("elev"))) idx.tilt=i;
+      else if(idx.zoom<0&&c.includes("zoom")) idx.zoom=i;
+      else if(idx.focus<0&&c.includes("focus")) idx.focus=i;
+      else if(iTime<0&&(c.includes("time")||c.includes("sec"))) iTime=i;
+      else if(iFrame<0&&c.includes("frame")) iFrame=i;
+    });
+    start=1;
+  }
+  const clamp=d=>Math.max(-DEG_MAX,Math.min(DEG_MAX,d)), rows=[];
+  for(let i=start;i<lines.length;i++){
+    const p=lines[i].split(",").map(s=>parseFloat(s));
+    let tMs,vals={pan:0,tilt:0,zoom:0,focus:0};
+    if(idx.pan>=0||idx.tilt>=0){
+      AXIS_NAMES.forEach(n=>{if(idx[n]>=0) vals[n]=p[idx[n]];});
+      tMs=iTime>=0?p[iTime]*1000:(iFrame>=0?p[iFrame]/fps*1000:(i-start)/fps*1000);
+    }else if(p.length>=6){tMs=p[1]*1000;[vals.pan,vals.tilt,vals.zoom,vals.focus]=p.slice(2,6);}
+    else if(p.length===5){tMs=p[0]*1000;[vals.pan,vals.tilt,vals.zoom,vals.focus]=p.slice(1,5);}
+    else if(p.length===4){tMs=p[1]*1000;vals.pan=p[2];vals.tilt=p[3];}
+    else if(p.length===3){tMs=p[0]*1000;vals.pan=p[1];vals.tilt=p[2];}
+    else if(p.length===2){tMs=(i-start)/fps*1000;vals.pan=p[0];vals.tilt=p[1];}
+    else continue;
+    if(tMs==null||isNaN(tMs)||AXIS_NAMES.some(n=>vals[n]==null||isNaN(vals[n]))) continue;
+    const tt=Math.max(0,Math.min(T_MAX,tMs));
+    rows.push({t:tt,...Object.fromEntries(AXIS_NAMES.map(n=>[n,clamp(vals[n])]))});
+  }
+  const ordered=[...new Map(rows.sort((a,b)=>a.t-b.t).map(r=>[r.t,r])).values()];
+  if(ordered.length<2){toast("CSV 파싱 실패 (유효한 시간 행 2개 이상 필요)");return;}
+  const MAXN=80,rawCount=ordered.length,reduced={};
+  AXIS_NAMES.forEach(n=>{
+    reduced[n]=simplifyCapped(ordered.map(r=>({t:r.t,deg:r[n]})),MAXN);
+    axes[n].points=reduced[n];axes[n].raw=reduced[n].map(q=>({...q}));axes[n].filtered=[];
+  });
+  state.stage="raw";resetScaleUI();
+  undoStack=[];redoStack=[];updateUndoRedo();resetMoveUI();
+  state.loadedPreset=-1;markDirty();
+  const [a]=pathRange();play.t=a;motor.t=a;play.synced=false;play.dir=1;play.on=false;
+  updateButtons();renderPresets();resetPlayUI();draw();
+  toast("4축 CSV 가져오기: "+rawCount+"→최대 "+Math.max(...AXIS_NAMES.map(n=>reduced[n].length))+"포인트 — RAW 로드");
+}
+$("csvExportBtn").addEventListener("click", csvExport);
+$("csvPresetExportBtn").addEventListener("click", exportAllPresets);
+$("csvImportBtn").addEventListener("click", ()=> $("csvFile").click());
+hoverTip("csvGroup","내보내기: 현재 경로를 프레임별 CSV로. 일괄: 저장된 프리셋을 각각 개별 파일로. 가져오기: 외부 CSV를 쉐잎 유지하며 편집 가능한 포인트로 자동 단순화(RDP) 로드.");
+$("csvFile").addEventListener("change", e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const rd=new FileReader();
+  rd.onload=()=>{ try{ csvImport(String(rd.result)); }catch(err){ toast("가져오기 오류: "+err.message); } };
+  rd.readAsText(f);
+  e.target.value="";
+});
+
+window.addEventListener("resize", resize);
+
+// ---------- 재생 (플레이) + 모터싱크 ----------
+function fmt(ms){ return (ms/1000).toFixed(1); }
+function resetPlayUI(){
+  const [a,b]=pathRange();
+  const prog = b>a ? (play.t-a)/(b-a) : 0;
+  $("pfill").style.width = Math.max(0,Math.min(1,prog))*100 + "%";
+  $("ptime").textContent = fmt(Math.max(a,Math.min(b,play.t))-a) + " / " + fmt(b-a) + " s";
+}
+// 재생/모터싱크는 FLT 또는 EDIT 모드에서 가능 (RAW만 차단)
+function syncable(){ return state.stage==="flt" || state.stage==="edit"; }
+function playEnabled(){ return syncable() && play.synced; }
+function updatePlayBtn(){
+  const fwd=$("playBtn"), rev=$("revBtn"), dis=!playEnabled();
+  const [a,b]=pathRange();
+  const atStart = play.t <= a+1, atEnd = play.t >= b-1;
+  fwd.textContent = (play.on && play.dir>0) ? "❚❚" : "▶";
+  rev.textContent = (play.on && play.dir<0) ? "❚❚" : "◀";
+  fwd.classList.toggle("on", play.on && play.dir>0);
+  rev.classList.toggle("on", play.on && play.dir<0);
+  fwd.classList.toggle("disabled", dis);
+  // 시작 지점(1프레임)에서는 역재생 비활성화(끝으로 튀는 것 방지)
+  rev.classList.toggle("disabled", dis || (!play.on && atStart));
+  const tip = dis
+    ? (!syncable() ? "FLT/EDIT(또는 프리셋 호출) 상태에서만 재생 가능"
+                   : "먼저 SYNC(모터싱크)로 모터를 플레이헤드에 맞추세요")
+    : null;
+  fwd.title = tip || "재생"; rev.title = tip || "역재생";
+  // 미동기 시 SYNC 버튼 강조 (모든 모드)
+  $("syncBtn").classList.toggle("on", !play.synced);
+}
+// 방향 지정 재생. 재생 중 같은 방향=일시정지, 반대 방향=즉시 전환.
+function go(dir){
+  if(!playEnabled()){
+    if(!syncable()) toast("재생은 FLT/EDIT(또는 프리셋 호출) 상태에서만 가능합니다");
+    else toast("먼저 SYNC(모터싱크)를 눌러 주세요");
+    return;
+  }
+  const [a,b]=pathRange();
+  if(play.on){
+    if(play.dir===dir){ pausePlay(); return; }
+    play.dir=dir; updatePlayBtn(); return;
+  }
+  if(dir<0 && play.t<=a+1){ toast("이미 시작 지점입니다 (역재생 불가)"); return; }
+  play.dir=dir;
+  if(dir>0 && play.t>=b-1) play.t=a;    // 끝에서 정방향 → 처음부터
+  if(dir<0 && play.t<=a+1) play.t=b;    // 처음에서 역방향 → 끝부터
+  play.on=true; play.last=performance.now();
+  updatePlayBtn();
+  play.raf=requestAnimationFrame(tick);
+}
+function pausePlay(){
+  play.on=false; if(play.raf) cancelAnimationFrame(play.raf);
+  updatePlayBtn(); draw();
+}
+function resetPlay(){           // 정지(처음으로). 모터 실제 위치는 유지.
+  play.on=false; if(play.raf) cancelAnimationFrame(play.raf);
+  const [a]=pathRange(); play.t=a; play.dir=1;
+  play.synced = Math.abs(play.t-motor.t) < 1;   // 모터와 어긋나면 미동기 → 재생 불가
+  updatePlayBtn(); resetPlayUI(); draw();
+}
+function stopPlay(){ resetPlay(); }
+function tick(ts){
+  const dt = ts-play.last; play.last=ts;
+  const [a,b]=pathRange();
+  play.t += play.dir*dt;
+  let stop=false;
+  // 완료 시 방향은 그대로 둠(완료 후 버튼이 역재생으로 바뀌지 않도록)
+  if(play.t>=b){ play.t=b; if(play.cycle) play.dir=-1; else stop=true; }
+  else if(play.t<=a){ play.t=a; if(play.cycle) play.dir=1; else stop=true; }
+  motor.t = play.t;             // 모터가 플레이헤드를 실시간 추종
+  if(stop){ play.on=false; updatePlayBtn(); resetPlayUI(); draw(); return; }
+  resetPlayUI(); draw();
+  if(play.on) play.raf=requestAnimationFrame(tick);
+}
+// 모터싱크: 모터를 플레이바 위치로 복귀(애니메이션)
+let motorAnim=null;
+function animateMotorTo(target, done){
+  if(motorAnim) cancelAnimationFrame(motorAnim);
+  const start=motor.t, t0=performance.now(), dur=380;
+  function step(ts){
+    const u=Math.min(1,(ts-t0)/dur);
+    motor.t = start + (target-start)*smootherstep(u);
+    draw();
+    if(u<1) motorAnim=requestAnimationFrame(step);
+    else { motor.t=target; motorAnim=null; draw(); if(done) done(); }
+  }
+  motorAnim=requestAnimationFrame(step);
+}
+$("syncBtn").addEventListener("click", function(){
+  this.blur();
+  // 모터싱크는 모든 모드(RAW/EDIT/FLT)에서 사용 가능 — 현재 플레이헤드 위치로 기구부 이동
+  animateMotorTo(play.t, ()=>{ play.synced=true; updatePlayBtn(); toast("모터싱크 완료"); });
+});
+$("playBtn").addEventListener("click", function(){ this.blur(); go(1); });
+$("revBtn").addEventListener("click", function(){ this.blur(); go(-1); });
+$("stopBtn").addEventListener("click", function(){ this.blur(); resetPlay(); });
+$("cycleBtn").addEventListener("click", function(){ this.blur(); play.cycle=!play.cycle; this.classList.toggle("on", play.cycle); });
+$("jogScaleInput").addEventListener("input", e=>{
+  let v=+e.target.value; if(!(v>0)) v=0.5;
+  v=Math.max(0.1, Math.min(1, v));
+  e.target.value=v; jogStep=Math.round(v*1000); jogLabel();
+});
+$("ptrack").addEventListener("click", e=>{
+  if(!syncable()) return;
+  const r=$("ptrack").getBoundingClientRect();
+  const f=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));
+  const [a,b]=pathRange(); play.t=a+f*(b-a);
+  play.synced = Math.abs(play.t-motor.t) < 1;   // 모터와 어긋나면 미동기
+  updatePlayBtn(); resetPlayUI(); draw();
+});
+
+// ---------- 초기화 ----------
+AXIS_NAMES.forEach(regenAxis);
+{ const [a]=pathRange(); play.t=a; motor.t=a; play.synced=false; }
+restorePersistedPresets();
+renderPresets();
+updateUndoRedo();
+updateButtons();
+updatePinUI();
+jogLabel();
+resize();
+resetPlayUI();
+</script>
+</body>
+</html>
