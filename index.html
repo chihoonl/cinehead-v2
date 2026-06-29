@@ -116,6 +116,20 @@
     cursor:pointer; transition:filter .15s; touch-action:manipulation;
   }
   .hdr-raw:hover { filter:brightness(1.14); border-color:var(--accent); }
+  .hdr-raw:disabled { opacity:.35; cursor:not-allowed; filter:none; border-color:#3b4a5e; }
+  .raw-axis-picks {
+    margin-left:auto; display:grid; grid-template-columns:repeat(4,32px); gap:5px; align-items:center;
+  }
+  .raw-axis-btn {
+    width:32px; height:30px; padding:0; border:1px solid var(--line); border-radius:7px;
+    background:#0d141c; color:var(--text-dim); font-size:12px; font-weight:900; cursor:pointer;
+    touch-action:manipulation; transition:background .15s,border-color .15s,color .15s,opacity .15s;
+  }
+  .raw-axis-btn[data-axis="pan"].on { color:var(--pan); border-color:var(--pan); background:rgba(56,189,248,.14); }
+  .raw-axis-btn[data-axis="tilt"].on { color:var(--tilt); border-color:var(--tilt); background:rgba(245,165,36,.14); }
+  .raw-axis-btn[data-axis="zoom"].on { color:var(--zoom); border-color:var(--zoom); background:rgba(167,139,250,.14); }
+  .raw-axis-btn[data-axis="focus"].on { color:var(--focus); border-color:var(--focus); background:rgba(251,113,133,.14); }
+  .raw-axis-btn.generated { opacity:.4; cursor:not-allowed; background:#1b2531; }
   .graph-wrap.speed-view ~ .playbar { display: none; }
   .hint {
     flex: none; margin: 6px 14px 10px;
@@ -242,6 +256,7 @@
     font-size: 12.5px; font-weight: 600; letter-spacing: .3px; transition: filter .15s;
   }
   .btn:hover { filter: brightness(1.12); }
+  .btn:disabled { opacity:.35; cursor:not-allowed; filter:none; }
   .btn-main { background: var(--flt); color: #04150e; }
   .btn-raw { background: #334155; color: #dbeafe; }
   .btn-main.edit { background: var(--tilt); color: #1a1000; }
@@ -383,7 +398,12 @@
       <output class="y-range-readout" id="yRangeValue">±360°</output>
     </span>
   </div>
-  <span class="badge" id="aiBadge">4 AXIS · AI: OFF · ML 미적용</span>
+  <div class="raw-axis-picks" id="rawAxisPicks" aria-label="RAWPT axis selection">
+    <button class="raw-axis-btn" data-axis="pan" aria-pressed="false" title="PAN RAW path">P</button>
+    <button class="raw-axis-btn" data-axis="tilt" aria-pressed="false" title="TILT RAW path">T</button>
+    <button class="raw-axis-btn" data-axis="zoom" aria-pressed="false" title="ZOOM RAW path">Z</button>
+    <button class="raw-axis-btn" data-axis="focus" aria-pressed="false" title="FOCUS RAW path">F</button>
+  </div>
   <button class="hdr-raw" id="regenBtn" title="개발용 엔코더 RAW 포인트 시뮬레이션">RAWPT</button>
 </header>
 
@@ -442,8 +462,8 @@
           <input type="range" id="fltStrength" min="0" max="100" value="0" />
           <span class="val" id="fltStrengthVal">0%</span></div>
         <div class="row"><label>S-Curve 추종</label>
-          <input type="range" id="sCurveStrength" min="0" max="100" value="100" />
-          <span class="val" id="sCurveStrengthVal">100%</span></div>
+          <input type="range" id="sCurveStrength" min="0" max="100" value="0" />
+          <span class="val" id="sCurveStrengthVal">0%</span></div>
         <div class="subh">편집 포인트 수</div>
         <div class="row density-row"><label class="pan-dot">P-PNT</label>
           <span class="point-count-control" data-axis="pan"><input class="point-count-slider" id="panPointSlider" type="range" min="4" max="40" step="2" value="40" aria-label="P-PNT 포인트 수" /><button class="tbtn stepbtn" data-step="-2" aria-label="P-PNT 2개 감소">−</button><output class="point-count-value" id="panPointCount">40</output><button class="tbtn stepbtn" data-step="2" aria-label="P-PNT 2개 증가">+</button></span></div>
@@ -600,7 +620,7 @@ const state = {
   timeViewEnd: T_MAX,
   rangeDeg: 360,           // Y축 표시 반경(± rangeDeg°). 축범위 슬라이더: ±45 ~ ±1080
   fltStrength: 0,
-  sCurveStrength: 100,
+  sCurveStrength: 0,
   gridScaleX: 0.2,
   gridScaleY: 0.2,
   snap: true,
@@ -623,6 +643,8 @@ const state = {
   pinEnds: false,          // 시작/끝(IN·OUT) 포인트 고정
   pin: null,               // 축별 {axis:[in,out]} 고정값
   rawMeta: { source:"simulator", sequence:0, capturedAt:0 },
+  rawAxisSelected: { pan:false, tilt:false, zoom:false, focus:false },
+  rawAxisGenerated: { pan:false, tilt:false, zoom:false, focus:false },
 };
 
 // ---------- IN/OUT 포인트 고정 ----------
@@ -671,7 +693,7 @@ function persistPresets(){
 function restorePersistedPresets(){
   try{
     const saved=JSON.parse(localStorage.getItem("cinehead-v10-presets")||localStorage.getItem("cinehead-v9-presets")||localStorage.getItem("cinehead-v8-presets")||localStorage.getItem("cinehead-v7-presets")||localStorage.getItem("cinehead-v6-presets")||localStorage.getItem("cinehead-v5-presets")||localStorage.getItem("cinehead-v4-presets")||localStorage.getItem("cinehead-v3-presets")||localStorage.getItem("cinehead-v2-presets")||"null");
-    if((saved?.version===9||saved?.version===8||saved?.version===7||saved?.version===6||saved?.version===5||saved?.version===4||saved?.version===3||saved?.version===2)&&Array.isArray(saved.presets))
+    if((saved?.version===10||saved?.version===9||saved?.version===8||saved?.version===7||saved?.version===6||saved?.version===5||saved?.version===4||saved?.version===3||saved?.version===2)&&Array.isArray(saved.presets))
       state.presets=saved.presets.slice(0,10).concat(new Array(10).fill(null)).slice(0,10);
   }catch(_){ }
 }
@@ -717,6 +739,7 @@ function sanitizeRawAxis(samples){
 }
 
 function workingPointsFromCapture(capture,count){
+  if(!capture.length) return [];
   if(capture.length<2) return constantPath(capture[0]?.deg||0);
   const n=clampPointCount(count), curve=buildMotionProfile(capture,12).position;
   const t0=capture[0].t,t1=capture[capture.length-1].t;
@@ -745,43 +768,89 @@ function setAxisResampleSource(name,pts,stage){
 }
 // 공용 RAW 진입점: 시뮬레이터와 향후 ESP32/Teensy 엔코더 수신기가 같은 데이터 계약을 사용한다.
 function ingestRawCapture(rawByAxis,meta){
-  AXIS_NAMES.forEach(name=>{
+  const supplied=AXIS_NAMES.filter(name=>Array.isArray(rawByAxis?.[name])&&rawByAxis[name].length>=2);
+  supplied.forEach(name=>{
     const capture=sanitizeRawAxis(rawByAxis?.[name]);
-    const safe=capture.length>=2?capture:constantPath(0);
+    if(capture.length<2) return;
+    const safe=capture;
     const editCount=clampPointCount(Math.min(EDIT_POINT_MAX,safe.length));
     axes[name].raw=safe.map(p=>({...p}));               // 원본 캡처는 고정 보존
     axes[name].pointCount=editCount;
     axes[name].points=workingPointsFromCapture(safe,editCount);
     axes[name].filtered=[];
     setAxisResampleSource(name,safe,"raw");
+    state.rawAxisSelected[name]=false;
+    state.rawAxisGenerated[name]=true;
     updatePointCountUI(name);
   });
+  if(!supplied.length) return [];
   state.stage="raw";
   state.rawMeta={
     source:meta?.source||"encoder",
     sequence:(state.rawMeta?.sequence||0)+1,
     capturedAt:meta?.capturedAt||Date.now()
   };
+  updateRawAxisUI();
+  return supplied;
 }
 
-function simulateEncoderCapture(){
-  return Object.fromEntries(AXIS_NAMES.map(name=>[name,simulateEncoderAxis(name)]));
+function simulateEncoderCapture(names){
+  const targets=(names||AXIS_NAMES).filter(name=>AXIS_NAMES.includes(name));
+  return Object.fromEntries(targets.map(name=>[name,simulateEncoderAxis(name)]));
 }
 
 function acceptRawCapture(rawByAxis,meta){
   if(play.on) pausePlay();
-  ingestRawCapture(rawByAxis,meta);
+  const ingested=ingestRawCapture(rawByAxis,meta);
+  if(!ingested.length) return [];
   resetScaleUI(); resetMoveUI(); resetTimeZoom(false);
   undoStack=[]; redoStack=[]; updateUndoRedo();
   state.loadedPreset=-1; markDirty();
   if(state.pinEnds) capturePins();
   const [a]=pathRange(); play.t=a; motor.t=a; play.synced=false; play.dir=1; play.on=false;
   resetPlayUI(); renderPresets(); updateButtons(); draw();
+  return ingested;
 }
 
 function regenAll(){
-  acceptRawCapture(simulateEncoderCapture(),{source:"simulator"});
+  const targets=AXIS_NAMES.filter(name=>state.rawAxisSelected[name]&&!state.rawAxisGenerated[name]);
+  if(!targets.length) return [];
+  return acceptRawCapture(simulateEncoderCapture(targets),{source:"simulator"});
 }
+
+function initializeEmptyRawState(){
+  AXIS_NAMES.forEach(name=>{
+    const a=axes[name];
+    a.raw=[]; a.points=[]; a.filtered=[]; a.resampleSource=[];
+    a.pointCount=EDIT_POINT_MAX; a.resampleStage="raw"; a.resampleDirty=false;
+    state.rawAxisSelected[name]=false; state.rawAxisGenerated[name]=false;
+    updatePointCountUI(name);
+  });
+  state.stage="raw";
+  state.rawMeta={source:"none",sequence:0,capturedAt:0};
+  updateRawAxisUI();
+}
+
+function updateRawAxisUI(){
+  document.querySelectorAll(".raw-axis-btn").forEach(btn=>{
+    const name=btn.dataset.axis,generated=!!state.rawAxisGenerated[name],selected=!!state.rawAxisSelected[name];
+    btn.disabled=generated;
+    btn.classList.toggle("on",selected||generated);
+    btn.classList.toggle("generated",generated);
+    btn.setAttribute("aria-pressed",String(selected||generated));
+  });
+  const canGenerate=AXIS_NAMES.some(name=>state.rawAxisSelected[name]&&!state.rawAxisGenerated[name]);
+  $("regenBtn").disabled=!canGenerate;
+}
+
+document.querySelectorAll(".raw-axis-btn").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    const name=btn.dataset.axis;
+    if(!name||state.rawAxisGenerated[name]) return;
+    state.rawAxisSelected[name]=!state.rawAxisSelected[name];
+    updateRawAxisUI();
+  });
+});
 
 window.CineHeadHMI=window.CineHeadHMI||{};
 window.CineHeadHMI.ingestEncoderRaw=(rawByAxis,meta)=>acceptRawCapture(rawByAxis,{...meta,source:meta?.source||"encoder"});
@@ -1358,6 +1427,7 @@ function updateMotorDials(){
 }
 
 function pathRange(){
+  if(!AXIS_NAMES.some(n=>axes[n].points.length>=2)) return [0,0];
   const first=Math.min(...AXIS_NAMES.map(n=>axes[n].points.length?Math.min(...axes[n].points.map(p=>p.t)):T_MAX));
   const last=Math.max(...AXIS_NAMES.map(n=>axes[n].points.length?Math.max(...axes[n].points.map(p=>p.t)):0));
   return [Number.isFinite(first)?first:0, last||T_MAX];
@@ -1723,8 +1793,11 @@ document.querySelectorAll(".graph-tab").forEach(btn=>{
 
 function updateButtons(){
   const mb=$("mainBtn");
+  const hasPaths=AXIS_NAMES.some(name=>axes[name].points.length>=2);
   if(state.stage==="flt"){ mb.textContent="EDIT"; mb.classList.add("edit"); }
   else { mb.textContent="SMOOTH"; mb.classList.remove("edit"); }
+  mb.disabled=!hasPaths;
+  $("confirmBtn").disabled=!hasPaths;
   const hints={
     raw:"ENC RAW: 고밀도 캡처 경로입니다. 포인트 수를 줄인 뒤 마우스·터치로 편집하세요.",
     flt:"FLT MP: 칼만 + S-Curve 추종 모델로 정형된 곡선입니다. EDIT으로 재편집.",
@@ -1737,6 +1810,7 @@ function updateButtons(){
         ? "EDIT 속도 · 읽기 전용(가는 선): 편집 위치곡선 미분에 초경량 평활을 적용한 속도(°/s)입니다 — 위치 추세 추종."
         : "FLT 속도 · 읽기 전용(굵은 선): S-Curve 완화가 적용된 연속 속도 램프(°/s)입니다."))
     : hints[state.stage];
+  if(!hasPaths) $("hint").textContent="P/T/Z/F 축을 선택한 뒤 RAWPT를 눌러 경로를 생성하세요.";
   // SUPER SMOOTH 스위치는 재편집(EDIT) 단계에서만 활성화
   const ss=$("superSmooth"), ssDis = state.stage!=="edit";
   ss.classList.toggle("disabled", ssDis);
@@ -1807,15 +1881,18 @@ function loadPreset(i){
   const p=state.presets[i]; if(!p) return;
   stopPlay();
   AXIS_NAMES.forEach(n=>{
-    const src=p[n] || constantPath(0);
+    const src=Array.isArray(p[n])?p[n]:[];
     axes[n].pointCount=clampPointCount(src.length);
     axes[n].filtered=src.map(q=>({...q}));
     axes[n].points=src.map(q=>({...q}));
     axes[n].raw=src.map(q=>({...q}));
     setAxisResampleSource(n,src,"flt");
+    state.rawAxisSelected[n]=false;
+    state.rawAxisGenerated[n]=src.length>=2;
     updatePointCountUI(n);
   });
   state.stage="flt";
+  updateRawAxisUI();
   // 핀이 켜져 있으면 불러온 프리셋의 끝점으로 재설정(이전 경로의 IN/OUT을 덮어쓰지 않음)
   if(state.pinEnds) capturePins();
   state.loadedPreset = i;
@@ -1905,7 +1982,6 @@ $("aiBtn").addEventListener("click", function(){
   this.blur();
   state.ai=!state.ai;
   this.classList.toggle("on", state.ai);
-  $("aiBadge").textContent = "4 AXIS · AI: "+(state.ai?"ON":"OFF")+" · ML 미적용";
 });
 // SUPER SMOOTH (EDIT 단계에서만 활성)
 $("superSmooth").addEventListener("click", function(){
@@ -2038,14 +2114,15 @@ function clampPointCount(v){
   return Math.max(EDIT_POINT_MIN,Math.min(EDIT_POINT_MAX,n));
 }
 function updatePointCountUI(name){
+  const hasPath=axes[name].points.length>=2;
   const out=$(name+"PointCount");
-  if(out) out.textContent=String(axes[name].pointCount);
+  if(out) out.textContent=hasPath?String(axes[name].pointCount):"—";
   const slider=$(name+"PointSlider");
-  if(slider) slider.value=String(axes[name].pointCount);
+  if(slider){ slider.value=String(axes[name].pointCount); slider.disabled=!hasPath; }
   const control=document.querySelector('.point-count-control[data-axis="'+name+'"]');
   control?.querySelectorAll(".stepbtn").forEach(btn=>{
     const step=+btn.dataset.step||0;
-    btn.disabled=(step<0&&axes[name].pointCount<=EDIT_POINT_MIN)||(step>0&&axes[name].pointCount>=EDIT_POINT_MAX);
+    btn.disabled=!hasPath||(step<0&&axes[name].pointCount<=EDIT_POINT_MIN)||(step>0&&axes[name].pointCount>=EDIT_POINT_MAX);
   });
 }
 
@@ -2114,8 +2191,9 @@ document.querySelectorAll(".point-count-slider").forEach(slider=>{
 AXIS_NAMES.forEach(updatePointCountUI);
 $("csvFps").addEventListener("input", e=>{ $("csvFpsVal").textContent=csvFps()+"fps"; });
 $("regenBtn").addEventListener("click", ()=>{
-  regenAll();
-  toast("RAWPT · 최대 포인트 엔코더 입력 모사");
+  const generated=regenAll();
+  if(!generated.length){ toast("RAWPT: select at least one available axis"); return; }
+  toast("RAWPT · "+generated.map(name=>AXIS_LABEL[name]).join("/")+" generated");
 });
 
 // ---------- CSV 입출력 ----------
@@ -2356,7 +2434,7 @@ $("ptrack").addEventListener("click", e=>{
 
 // ---------- 초기화 ----------
 initMotorDials();
-ingestRawCapture(simulateEncoderCapture(),{source:"simulator"});
+initializeEmptyRawState();
 { const [a]=pathRange(); play.t=a; motor.t=a; play.synced=false; }
 restorePersistedPresets();
 renderPresets();
