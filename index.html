@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>CineHead v3 · 4축 모션패스 생성·편집 시뮬레이터</title>
+<title>e-PanBar RoboticsHead_SIM_v10.3</title>
 <style>
   :root {
     --bg: #0b0f14;
@@ -68,13 +68,60 @@
 
   main { flex: 1; display: flex; min-height: 0; overflow: hidden; }
 
-  .graph-wrap { flex: 1; position: relative; min-width: 0; background: #0a0e13; }
+  .center-col { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .graph-wrap { flex: 1; position: relative; min-width: 0; min-height: 0; background: #0a0e13; }
   canvas { display: block; width: 100%; height: 100%; cursor: crosshair; touch-action:none; }
+  .graph-wrap.speed-view canvas { cursor: default; }
+  .graph-tabs {
+    display: flex; align-self: stretch; align-items: stretch; gap: 0; margin: -10px 0;
+    border-left: 1px solid var(--line); border-right: 1px solid var(--line);
+    background: rgba(10,14,19,.42);
+  }
+  .graph-tab {
+    position: relative; min-width: 96px; padding: 10px 15px 9px;
+    border: 0; border-right: 1px solid rgba(36,49,64,.7); border-radius: 0;
+    background: transparent; color: var(--text-dim); font-size: 12px; font-weight: 700;
+    cursor: pointer; touch-action: manipulation; transition: color .16s, background .16s;
+  }
+  .graph-tab:first-child { border-left: 1px solid rgba(36,49,64,.7); }
+  .graph-tab:hover { color: var(--text); background: rgba(56,189,248,.05); }
+  .graph-tab.active { color: var(--accent); background: linear-gradient(180deg,rgba(56,189,248,.02),rgba(56,189,248,.12)); }
+  .graph-tab.active::after {
+    content:""; position:absolute; left:0; right:0; bottom:0; height:3px; background:var(--accent);
+    box-shadow:0 -2px 10px rgba(56,189,248,.42);
+  }
+  .time-zoom-controls {
+    display:flex; align-items:center; gap:3px; margin-left:8px; padding:5px 7px;
+    border-left:1px solid var(--line);
+  }
+  .time-zoom-btn {
+    width:29px; min-width:29px; border:1px solid var(--line); border-radius:6px;
+    background:#0d141c; color:var(--text); font-size:17px; font-weight:800; cursor:pointer;
+    touch-action:manipulation;
+  }
+  .time-zoom-btn:hover { color:var(--accent); border-color:var(--accent); }
+  .time-zoom-btn:disabled { opacity:.28; cursor:not-allowed; color:var(--text-dim); border-color:var(--line); }
+  .time-zoom-readout { min-width:34px; color:var(--accent); text-align:center; font-size:11px; font-variant-numeric:tabular-nums; }
+  .y-range-controls {
+    display:flex; align-items:center; gap:6px; margin-left:6px; padding:5px 7px;
+    border-left:1px solid var(--line);
+  }
+  .time-zoom-controls > label,
+  .y-range-controls > label { font-size:11px; font-weight:800; color:var(--text-dim); letter-spacing:.3px; }
+  .y-range-slider { width:104px !important; height:22px; }
+  .y-range-readout { min-width:46px; color:var(--accent); text-align:center; font-size:11px; font-variant-numeric:tabular-nums; }
+  .hdr-raw {
+    margin-left:10px; border:1px solid #3b4a5e; background:#334155; color:#dbeafe;
+    border-radius:7px; padding:6px 14px; font-size:12px; font-weight:700; letter-spacing:.4px;
+    cursor:pointer; transition:filter .15s; touch-action:manipulation;
+  }
+  .hdr-raw:hover { filter:brightness(1.14); border-color:var(--accent); }
+  .graph-wrap.speed-view ~ .playbar { display: none; }
   .hint {
-    position: absolute; bottom: 12px; left: 14px; right: 14px;
-    color: var(--text-dim); font-size: 11px; pointer-events: none;
+    flex: none; margin: 6px 14px 10px;
+    color: var(--text-dim); font-size: 11px;
     background: rgba(10,14,19,.55); padding: 5px 10px; border-radius: 6px;
-    border: 1px solid var(--line); width: fit-content;
+    border: 1px solid var(--line); width: fit-content; max-width: calc(100% - 28px);
   }
   .toast {
     position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
@@ -84,10 +131,34 @@
   }
   .toast.show { opacity: 1; }
 
+  .motor-panel,
   aside {
     width: 308px; flex: none; background: var(--panel);
-    border-left: 1px solid var(--line); display: flex; flex-direction: column; overflow: hidden;
+    display: flex; flex-direction: column; overflow: hidden;
   }
+  .motor-panel { border-right: 1px solid var(--line); }
+  aside { border-left: 1px solid var(--line); }
+  aside.viewer-locked { opacity: .38; filter: grayscale(.32); pointer-events: none; }
+  .motor-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 10px 12px; }
+  .motor-scroll::-webkit-scrollbar { width: 9px; }
+  .motor-scroll::-webkit-scrollbar-thumb { background: #263344; border-radius: 8px; }
+  .motor-card {
+    padding: 4px 6px 7px; margin-bottom: 5px;
+  }
+  .motor-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:3px; }
+  .motor-title { font-size:15px; font-weight:900; letter-spacing:.8px; }
+  .motor-readout { font-variant-numeric:tabular-nums; color:var(--text); font-size:14px; font-weight:700; border:1px solid var(--line); border-radius:999px; padding:4px 10px; background:#0d141c; }
+  .motor-dial { width:100%; max-width:270px; display:block; margin:0 auto; overflow:visible; filter: drop-shadow(0 10px 14px rgba(0,0,0,.44)); }
+  .svg-index-primary { opacity:.9; fill:none; stroke:#d6d6d6; stroke-width:2.2; stroke-linecap:round; }
+  .svg-index-major { opacity:.75; fill:none; stroke:#d6d6d6; stroke-width:1.6; stroke-linecap:round; }
+  .svg-motor-body { opacity:.42; fill:none; stroke:#c8c9ca; stroke-width:5; }
+  .svg-motor-dish { opacity:.42; fill:none; stroke:#c8c9ca; stroke-width:5; }
+  .motor-hand { transition: transform .045s linear; }
+  .svg-hand { fill:currentColor; filter: drop-shadow(0 4px 5px rgba(0,0,0,.45)); }
+  .motor-card.pan { color: var(--pan); }
+  .motor-card.tilt { color: var(--tilt); }
+  .motor-card.zoom { color: var(--zoom); }
+  .motor-card.focus { color: var(--focus); }
   .aside-top { flex: none; padding: 12px 12px 2px; border-bottom: 1px solid var(--line); background: var(--panel); }
   .aside-top .group { margin-bottom: 10px; }
   .aside-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 12px; }
@@ -172,6 +243,7 @@
   }
   .btn:hover { filter: brightness(1.12); }
   .btn-main { background: var(--flt); color: #04150e; }
+  .btn-raw { background: #334155; color: #dbeafe; }
   .btn-main.edit { background: var(--tilt); color: #1a1000; }
   .btn-confirm { background: var(--accent); color: #041420; }
 
@@ -187,9 +259,9 @@
   .presets.delmode .preset.lit { border-color: var(--danger); color: var(--danger); background: rgba(248,113,113,.14); box-shadow: 0 0 10px rgba(248,113,113,.35); }
   .presets.delmode .preset.lit:hover { background: rgba(248,113,113,.3); }
 
-  /* 플레이바 */
+  /* 플레이바 (그래프 영역과 분리된 별도 타임라인 컨트롤 바 — 오버레이 아님) */
   .playbar {
-    position: absolute; left: 14px; right: 14px; bottom: 40px;
+    flex: none; margin: 8px 14px 0;
     display: flex; align-items: center; gap: 10px;
     background: rgba(13,20,28,.82); border: 1px solid var(--line);
     border-radius: 10px; padding: 7px 10px;
@@ -208,7 +280,21 @@
 
   .mini { display: flex; gap: 6px; min-width: 0; }
   .mini .tbtn { flex: 1; text-align: center; }
-  .density-row input[type=range] { flex: 1 1 110px; }
+  .point-count-control { display:flex; align-items:center; gap:6px; margin-left:auto; flex:1 1 auto; min-width:0; }
+  .point-count-slider {
+    --point-color:var(--accent); flex:1 1 72px; width:auto !important; min-width:54px; max-width:104px;
+  }
+  .point-count-control[data-axis="pan"] .point-count-slider { --point-color:var(--pan); }
+  .point-count-control[data-axis="tilt"] .point-count-slider { --point-color:var(--tilt); }
+  .point-count-control[data-axis="zoom"] .point-count-slider { --point-color:var(--zoom); }
+  .point-count-control[data-axis="focus"] .point-count-slider { --point-color:var(--focus); }
+  .point-count-slider::-webkit-slider-thumb { background:var(--point-color); }
+  .point-count-slider::-moz-range-thumb { background:var(--point-color); }
+  .point-count-value {
+    min-width:48px; height:30px; display:inline-flex; align-items:center; justify-content:center;
+    border:1px solid var(--line); border-radius:7px; background:#0d141c; color:var(--accent);
+    font-size:14px; font-weight:800; font-variant-numeric:tabular-nums;
+  }
   .stepper { display: inline-flex; gap: 4px; flex: 0 0 auto; }
   .stepbtn {
     width: 30px; height: 30px; padding: 0; border-radius: 8px;
@@ -216,6 +302,7 @@
     font-size: 18px; line-height: 1; font-weight: 700;
     touch-action: manipulation; user-select: none;
   }
+  .stepbtn:disabled { opacity:.28; cursor:not-allowed; border-color:var(--line); }
 
   .jogset { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-dim); white-space: nowrap; }
   .jogset input[type=range] { width: 78px; }
@@ -228,9 +315,15 @@
     header { flex-wrap:wrap; gap:8px 12px; padding:9px 12px; }
     header .badge { margin-left:0; }
     .hlegend { order:3; width:100%; flex-wrap:wrap; }
+    .graph-tabs { order:4; align-self:auto; height:38px; margin:0; }
     main { flex-direction:column; overflow:visible; width:100%; }
+    .center-col { order:1; width:100%; flex:none; }
     .graph-wrap { flex:none; width:100%; min-height:520px; height:62vh; }
-    aside { width:100%; border-left:0; border-top:1px solid var(--line); overflow:visible; }
+    .motor-panel { width:100%; border-right:0; border-top:1px solid var(--line); overflow:visible; order:2; }
+    .motor-scroll { overflow:visible; padding:10px; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+    .motor-card { margin-bottom:0; }
+    .motor-dial { max-width:220px; }
+    aside { width:100%; border-left:0; border-top:1px solid var(--line); overflow:visible; order:3; }
     .aside-scroll { overflow:visible; padding:10px; }
     .aside-top { padding-bottom:8px; }
     .playbar { left:8px; right:8px; gap:6px; flex-wrap:wrap; }
@@ -247,26 +340,26 @@
     .frame { border-radius:0; border-left:0; border-right:0; }
     header h1 { width:100%; font-size:14px; }
     .graph-wrap { min-height:480px; height:58vh; }
+    .motor-scroll { grid-template-columns:1fr; }
+    .motor-dial { max-width:220px; }
     .playbar { bottom:36px; }
     .jogset { display:none; }
     .ptime { min-width:68px; }
     .row { gap: 8px; }
     .row label { max-width: 34%; white-space: normal; }
     .density-row { gap: 6px; }
-    .density-row label { flex: 0 0 46px; max-width: none; }
-    .density-row .val { min-width: 42px; }
-    .density-row input[type=range] { flex: 1 1 80px; width: auto; }
+    .density-row label { flex: 0 0 58px; max-width: none; }
     .stepbtn { width: 28px; height: 28px; }
     input[type=range] { width: clamp(120px, 48vw, 240px); flex-basis: 120px; }
     .presets { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    .graph-tab { min-width: 82px; padding-inline: 10px; }
   }
 </style>
 </head>
 <body>
 <div class="frame">
 <header>
-  <h1>CineHead v3 · 4축 모션패스 시뮬레이터</h1>
-  <span class="sub">단계: <span class="stage-tag" id="stageTag">RAW MP</span></span>
+  <h1>e-PanBar RoboticsHead_SIM_v10.3</h1>
   <span class="hlegend">
     <span><i style="background:var(--pan)"></i>Pan</span>
     <span><i style="background:var(--tilt)"></i>Tilt</span>
@@ -274,12 +367,52 @@
     <span><i style="background:var(--focus)"></i>Focus</span>
     <span><i style="background:var(--flt)"></i>FLT 곡선</span>
   </span>
+  <div class="graph-tabs" role="tablist" aria-label="그래프 보기 전환">
+    <button class="graph-tab active" id="positionTab" role="tab" aria-selected="true" data-view="position">위치경로</button>
+    <button class="graph-tab" id="speedTab" role="tab" aria-selected="false" data-view="speed">속도경로</button>
+    <span class="time-zoom-controls" aria-label="시간축 확대 축소">
+      <label>t스케일</label>
+      <button class="time-zoom-btn" id="timeZoomOut" aria-label="시간축 축소" title="플레이헤드 중심 시간축 축소">−</button>
+      <output class="time-zoom-readout" id="timeZoomValue">1×</output>
+      <button class="time-zoom-btn" id="timeZoomIn" aria-label="시간축 확대" title="플레이헤드 중심 시간축 확대">+</button>
+    </span>
+    <span class="y-range-controls" aria-label="축범위 조정">
+      <label for="yRange">축범위</label>
+      <input class="y-range-slider" type="range" id="yRange" min="45" max="1080" step="15" value="360"
+             title="Y축 표시 범위(±45°~±1080°)" aria-label="축범위" />
+      <output class="y-range-readout" id="yRangeValue">±360°</output>
+    </span>
+  </div>
   <span class="badge" id="aiBadge">4 AXIS · AI: OFF · ML 미적용</span>
+  <button class="hdr-raw" id="regenBtn" title="개발용 엔코더 RAW 포인트 시뮬레이션">RAWPT</button>
 </header>
 
 <main>
-  <div class="graph-wrap">
-    <canvas id="cv"></canvas>
+  <section class="motor-panel" aria-label="실시간 모터 회전 상태">
+    <div class="motor-scroll">
+      <div class="motor-card pan" data-motor="pan">
+        <div class="motor-head"><span class="motor-title pan-dot">PAN</span><span class="motor-readout" id="motorPanVal">0.0°</span></div>
+        <svg class="motor-dial" viewBox="-115 0 875 841.89" role="img" aria-label="PAN motor dial"></svg>
+      </div>
+      <div class="motor-card tilt" data-motor="tilt">
+        <div class="motor-head"><span class="motor-title tilt-dot">TILT</span><span class="motor-readout" id="motorTiltVal">0.0°</span></div>
+        <svg class="motor-dial" viewBox="-115 0 875 841.89" role="img" aria-label="TILT motor dial"></svg>
+      </div>
+      <div class="motor-card zoom" data-motor="zoom">
+        <div class="motor-head"><span class="motor-title zoom-dot">ZOOM</span><span class="motor-readout" id="motorZoomVal">0.0°</span></div>
+        <svg class="motor-dial" viewBox="-115 0 875 841.89" role="img" aria-label="ZOOM motor dial"></svg>
+      </div>
+      <div class="motor-card focus" data-motor="focus">
+        <div class="motor-head"><span class="motor-title focus-dot">FOCUS</span><span class="motor-readout" id="motorFocusVal">0.0°</span></div>
+        <svg class="motor-dial" viewBox="-115 0 875 841.89" role="img" aria-label="FOCUS motor dial"></svg>
+      </div>
+    </div>
+  </section>
+  <div class="center-col" id="centerCol">
+    <div class="graph-wrap" id="graphWrap">
+      <canvas id="cv"></canvas>
+      <div class="toast" id="toast"></div>
+    </div>
     <div class="playbar">
       <button class="pbtn" id="syncBtn" title="모터싱크: 모터를 플레이헤드 위치로 복귀" style="width:auto;padding:0 10px;font-size:11px;font-weight:600">SYNC</button>
       <button class="pbtn" id="revBtn" title="역재생">◀</button>
@@ -290,11 +423,10 @@
       <div class="ptrack" id="ptrack"><div class="pfill" id="pfill"></div></div>
       <span class="ptime" id="ptime">0.0 / 0.0 s</span>
     </div>
-    <div class="hint" id="hint">RAW MP: 포인트를 마우스·터치로 드래그해 경로를 편집하세요.</div>
-    <div class="toast" id="toast"></div>
+    <div class="hint" id="hint">ENC RAW: 고밀도 캡처 경로입니다. 포인트 수를 줄인 뒤 마우스·터치로 편집하세요.</div>
   </div>
 
-  <aside>
+  <aside id="controlPanel">
     <div class="aside-top">
       <div class="actions">
         <button class="btn btn-main" id="mainBtn">SMOOTH</button>
@@ -307,8 +439,20 @@
         <div class="row"><label>AI 모드</label>
           <button class="sw" id="aiBtn" title="현재 ON/OFF 동작만 (ML 학습값 미적용)"></button></div>
         <div class="row"><label>Kalman 강도</label>
-          <input type="range" id="fltStrength" min="0" max="100" value="60" />
-          <span class="val" id="fltStrengthVal">60%</span></div>
+          <input type="range" id="fltStrength" min="0" max="100" value="0" />
+          <span class="val" id="fltStrengthVal">0%</span></div>
+        <div class="row"><label>S-Curve 추종</label>
+          <input type="range" id="sCurveStrength" min="0" max="100" value="100" />
+          <span class="val" id="sCurveStrengthVal">100%</span></div>
+        <div class="subh">편집 포인트 수</div>
+        <div class="row density-row"><label class="pan-dot">P-PNT</label>
+          <span class="point-count-control" data-axis="pan"><input class="point-count-slider" id="panPointSlider" type="range" min="4" max="40" step="2" value="40" aria-label="P-PNT 포인트 수" /><button class="tbtn stepbtn" data-step="-2" aria-label="P-PNT 2개 감소">−</button><output class="point-count-value" id="panPointCount">40</output><button class="tbtn stepbtn" data-step="2" aria-label="P-PNT 2개 증가">+</button></span></div>
+        <div class="row density-row"><label class="tilt-dot">T-PNT</label>
+          <span class="point-count-control" data-axis="tilt"><input class="point-count-slider" id="tiltPointSlider" type="range" min="4" max="40" step="2" value="40" aria-label="T-PNT 포인트 수" /><button class="tbtn stepbtn" data-step="-2" aria-label="T-PNT 2개 감소">−</button><output class="point-count-value" id="tiltPointCount">40</output><button class="tbtn stepbtn" data-step="2" aria-label="T-PNT 2개 증가">+</button></span></div>
+        <div class="row density-row"><label class="zoom-dot">Z-PNT</label>
+          <span class="point-count-control" data-axis="zoom"><input class="point-count-slider" id="zoomPointSlider" type="range" min="4" max="40" step="2" value="40" aria-label="Z-PNT 포인트 수" /><button class="tbtn stepbtn" data-step="-2" aria-label="Z-PNT 2개 감소">−</button><output class="point-count-value" id="zoomPointCount">40</output><button class="tbtn stepbtn" data-step="2" aria-label="Z-PNT 2개 증가">+</button></span></div>
+        <div class="row density-row"><label class="focus-dot">F-PNT</label>
+          <span class="point-count-control" data-axis="focus"><input class="point-count-slider" id="focusPointSlider" type="range" min="4" max="40" step="2" value="40" aria-label="F-PNT 포인트 수" /><button class="tbtn stepbtn" data-step="-2" aria-label="F-PNT 2개 감소">−</button><output class="point-count-value" id="focusPointCount">40</output><button class="tbtn stepbtn" data-step="2" aria-label="F-PNT 2개 증가">+</button></span></div>
       </div>
     </div>
 
@@ -318,30 +462,6 @@
       <div class="mini">
         <button class="tbtn" id="undoBtn">↶ Undo</button>
         <button class="tbtn" id="redoBtn">Redo ↷</button>
-      </div>
-    </div>
-
-    <div class="group">
-      <h3>밀도</h3>
-      <div class="row density-row"><label class="pan-dot">P-PNT</label>
-        <input type="range" id="panDensity" min="0.2" max="1" step="0.1" value="0.4" />
-        <span class="val" id="panDensityVal">0.4/s</span>
-        <span class="stepper density-stepper" data-target="panDensity"><button class="tbtn stepbtn" data-step="-0.1" aria-label="P-PNT 밀도 0.1 감소">−</button><button class="tbtn stepbtn" data-step="0.1" aria-label="P-PNT 밀도 0.1 증가">+</button></span></div>
-      <div class="row density-row"><label class="tilt-dot">T-PNT</label>
-        <input type="range" id="tiltDensity" min="0.2" max="1" step="0.1" value="0.4" />
-        <span class="val" id="tiltDensityVal">0.4/s</span>
-        <span class="stepper density-stepper" data-target="tiltDensity"><button class="tbtn stepbtn" data-step="-0.1" aria-label="T-PNT 밀도 0.1 감소">−</button><button class="tbtn stepbtn" data-step="0.1" aria-label="T-PNT 밀도 0.1 증가">+</button></span></div>
-      <div class="row density-row"><label class="zoom-dot">Z-PNT</label>
-        <input type="range" id="zoomDensity" min="0.2" max="1" step="0.1" value="0.4" />
-        <span class="val" id="zoomDensityVal">0.4/s</span>
-        <span class="stepper density-stepper" data-target="zoomDensity"><button class="tbtn stepbtn" data-step="-0.1" aria-label="Z-PNT 밀도 0.1 감소">−</button><button class="tbtn stepbtn" data-step="0.1" aria-label="Z-PNT 밀도 0.1 증가">+</button></span></div>
-      <div class="row density-row"><label class="focus-dot">F-PNT</label>
-        <input type="range" id="focusDensity" min="0.2" max="1" step="0.1" value="0.4" />
-        <span class="val" id="focusDensityVal">0.4/s</span>
-        <span class="stepper density-stepper" data-target="focusDensity"><button class="tbtn stepbtn" data-step="-0.1" aria-label="F-PNT 밀도 0.1 감소">−</button><button class="tbtn stepbtn" data-step="0.1" aria-label="F-PNT 밀도 0.1 증가">+</button></span></div>
-      <div class="mini">
-        <button class="tbtn" id="regenBtn">RAW 재생성</button>
-        <button class="tbtn" id="resampleBtn">포인트 재생성</button>
       </div>
     </div>
 
@@ -448,7 +568,12 @@
 
 // ---------- 상수 / 좌표계 ----------
 const T_MAX = 30000;      // ms
-const DEG_MAX = 360;      // ±360
+const DEG_MAX = 1080;     // 저장/편집 한계 ±1080 (축범위 슬라이더 최대치와 정합)
+const EDIT_POINT_MIN = 4;
+const EDIT_POINT_MAX = 40;       // 시뮬레이터 편집 상한. 임베디드 통합 시 확장 가능
+const EDIT_TIME_GAP_MS = 20;     // 드래그 중 인접 포인트의 시간 순서가 뒤집히지 않도록 보장
+const RAW_SIM_POINT_COUNT = 40;  // 개발용 RAWPT가 생성하는 엔코더 모사 샘플 수
+const TIME_ZOOM_LEVELS = [1, 1.5, 2, 3, 4, 6, 8];
 const AXIS_NAMES = ["pan", "tilt", "zoom", "focus"];
 const AXIS_LABEL = { pan:"P-PT", tilt:"T-PT", zoom:"Z-PT", focus:"F-PT" };
 const COL = { pan: "#38bdf8", tilt: "#f5a524", zoom:"#a78bfa", focus:"#fb7185", flt: "#34d399" };
@@ -469,7 +594,13 @@ document.addEventListener("dragstart", e=>{
 // ---------- 상태 ----------
 const state = {
   stage: "raw",            // raw | flt | edit
-  fltStrength: 60,
+  viewMode: "position",    // position(편집) | speed(읽기 전용)
+  timeZoomIndex: 0,
+  timeViewStart: 0,
+  timeViewEnd: T_MAX,
+  rangeDeg: 360,           // Y축 표시 반경(± rangeDeg°). 축범위 슬라이더: ±45 ~ ±1080
+  fltStrength: 0,
+  sCurveStrength: 100,
   gridScaleX: 0.2,
   gridScaleY: 0.2,
   snap: true,
@@ -491,6 +622,7 @@ const state = {
   moveAxes: { pan:true, tilt:true, zoom:true, focus:true },
   pinEnds: false,          // 시작/끝(IN·OUT) 포인트 고정
   pin: null,               // 축별 {axis:[in,out]} 고정값
+  rawMeta: { source:"simulator", sequence:0, capturedAt:0 },
 };
 
 // ---------- IN/OUT 포인트 고정 ----------
@@ -524,22 +656,22 @@ const motor = { t: 0 };
 let undoStack = [], redoStack = [];
 const HISTORY_MAX = 20;
 
-// 각 축: raw(원본 비교용 고정), points(편집 가능 워킹셋), filtered(스무딩 결과 포인트값)
+// 각 축: raw(고밀도 엔코더 캡처 원본), points(축소·편집 워킹셋), filtered(실행용 완화 제어점)
 const axes = {
-  pan:  { density: 0.4, raw: [], points: [], filtered: [] },
-  tilt: { density: 0.4, raw: [], points: [], filtered: [] },
-  zoom: { density: 0.4, raw: [], points: [], filtered: [] },
-  focus:{ density: 0.4, raw: [], points: [], filtered: [] },
+  pan:  { pointCount: EDIT_POINT_MAX, raw: [], points: [], filtered: [], resampleSource:[], resampleStage:"raw", resampleDirty:false },
+  tilt: { pointCount: EDIT_POINT_MAX, raw: [], points: [], filtered: [], resampleSource:[], resampleStage:"raw", resampleDirty:false },
+  zoom: { pointCount: EDIT_POINT_MAX, raw: [], points: [], filtered: [], resampleSource:[], resampleStage:"raw", resampleDirty:false },
+  focus:{ pointCount: EDIT_POINT_MAX, raw: [], points: [], filtered: [], resampleSource:[], resampleStage:"raw", resampleDirty:false },
 };
 
 function constantPath(deg=0){ return [{t:0,deg},{t:T_MAX,deg}]; }
 function persistPresets(){
-  try{ localStorage.setItem("cinehead-v3-presets",JSON.stringify({version:3,presets:state.presets})); }catch(_){ }
+  try{ localStorage.setItem("cinehead-v10-presets",JSON.stringify({version:10,presets:state.presets})); }catch(_){ }
 }
 function restorePersistedPresets(){
   try{
-    const saved=JSON.parse(localStorage.getItem("cinehead-v3-presets")||localStorage.getItem("cinehead-v2-presets")||"null");
-    if((saved?.version===3||saved?.version===2)&&Array.isArray(saved.presets))
+    const saved=JSON.parse(localStorage.getItem("cinehead-v10-presets")||localStorage.getItem("cinehead-v9-presets")||localStorage.getItem("cinehead-v8-presets")||localStorage.getItem("cinehead-v7-presets")||localStorage.getItem("cinehead-v6-presets")||localStorage.getItem("cinehead-v5-presets")||localStorage.getItem("cinehead-v4-presets")||localStorage.getItem("cinehead-v3-presets")||localStorage.getItem("cinehead-v2-presets")||"null");
+    if((saved?.version===9||saved?.version===8||saved?.version===7||saved?.version===6||saved?.version===5||saved?.version===4||saved?.version===3||saved?.version===2)&&Array.isArray(saved.presets))
       state.presets=saved.presets.slice(0,10).concat(new Array(10).fill(null)).slice(0,10);
   }catch(_){ }
 }
@@ -552,19 +684,17 @@ const RAWDEF = {
   focus:{ t0: 7500,  t1: 28500, d0: 40, d1: -120 },
 };
 
-// ---------- RAW 생성 (러프 S-Curve: 단조 증가/감소, 비정형 속도, 역방향 없음) ----------
-function genRaw(name){
+// ---------- 개발용 엔코더 RAW 캡처 시뮬레이터 ----------
+// 실제 임베디드 연동 시 simulateEncoderCapture()만 제거하고 ingestRawCapture()를 그대로 사용한다.
+function simulateEncoderAxis(name){
   const c = RAWDEF[name];
-  const dens = Math.max(0.2, Math.min(1, axes[name].density));
-  const n = Math.max(3, Math.round(dens * (c.t1-c.t0)/1000) + 1);
-  // 구간별 양(+)의 속도 가중치 → 누적하면 단조(역방향 없음).
-  // S-Curve 경향(가운데 빠름) + 끝단은 0이 아님(가감속이 점진적이지 않음) + 랜덤(비정형).
-  const w = [];
+  const n = RAW_SIM_POINT_COUNT, w=[];
+  let drift=0;
   for (let i=0;i<n-1;i++){
     const f = (i+0.5)/(n-1);
-    const sBias = 0.45 + Math.sin(Math.PI*f);          // 가운데 큼, 끝단도 0 아님
-    const rough = 0.55 + Math.random()*0.9;            // 비정형 속도
-    w.push(Math.max(0.05, sBias*rough));
+    const sBias=0.38+Math.sin(Math.PI*f);
+    drift=drift*.72+(Math.random()-.5)*.58;             // 관성 있는 저주파 손떨림/속도 편차
+    w.push(Math.max(.08,sBias*Math.max(.28,1+drift)));
   }
   const sum = w.reduce((a,b)=>a+b,0);
   const pts = [{ t: c.t0, deg: c.d0 }];
@@ -577,13 +707,84 @@ function genRaw(name){
   }
   return pts;
 }
-function regenAxis(name){
-  const a = axes[name];
-  a.raw = genRaw(name);
-  a.points = a.raw.map(p=>({t:p.t, deg:p.deg}));
-  a.filtered = [];
+
+function sanitizeRawAxis(samples){
+  const sorted=(Array.isArray(samples)?samples:[])
+    .filter(p=>Number.isFinite(+p?.t)&&Number.isFinite(+p?.deg))
+    .map(p=>({t:Math.max(0,Math.min(T_MAX,+p.t)),deg:Math.max(-DEG_MAX,Math.min(DEG_MAX,+p.deg))}))
+    .sort((a,b)=>a.t-b.t);
+  return [...new Map(sorted.map(p=>[p.t,p])).values()];
 }
-function regenAll(){ AXIS_NAMES.forEach(regenAxis); state.stage="raw"; updateButtons(); draw(); }
+
+function workingPointsFromCapture(capture,count){
+  if(capture.length<2) return constantPath(capture[0]?.deg||0);
+  const n=clampPointCount(count), curve=buildMotionProfile(capture,12).position;
+  const t0=capture[0].t,t1=capture[capture.length-1].t;
+  return Array.from({length:n},(_,i)=>{
+    const t=t0+(t1-t0)*i/(n-1);
+    return {t,deg:degAt(curve,t)};
+  });
+}
+
+// 포인트 수 변경과 실제 편집을 분리하기 위한 축별 고해상도 기준 경로.
+// 단순 증감은 이 기준 경로를 다시 샘플링하고, 사용자가 경로를 수정했을 때만 기준을 갱신한다.
+function setAxisResampleSource(name,pts,stage){
+  const a=axes[name],src=normalizedMotionPoints(pts);
+  if(src.length<2){
+    a.resampleSource=src.map(p=>({...p}));
+  }else{
+    const curve=buildMotionProfile(src,24).position;
+    const t0=src[0].t,t1=src[src.length-1].t,n=160;
+    a.resampleSource=Array.from({length:n},(_,i)=>{
+      const t=t0+(t1-t0)*i/(n-1);
+      return {t,deg:degAt(curve,t)};
+    });
+  }
+  a.resampleStage=stage||state.stage;
+  a.resampleDirty=false;
+}
+// 공용 RAW 진입점: 시뮬레이터와 향후 ESP32/Teensy 엔코더 수신기가 같은 데이터 계약을 사용한다.
+function ingestRawCapture(rawByAxis,meta){
+  AXIS_NAMES.forEach(name=>{
+    const capture=sanitizeRawAxis(rawByAxis?.[name]);
+    const safe=capture.length>=2?capture:constantPath(0);
+    const editCount=clampPointCount(Math.min(EDIT_POINT_MAX,safe.length));
+    axes[name].raw=safe.map(p=>({...p}));               // 원본 캡처는 고정 보존
+    axes[name].pointCount=editCount;
+    axes[name].points=workingPointsFromCapture(safe,editCount);
+    axes[name].filtered=[];
+    setAxisResampleSource(name,safe,"raw");
+    updatePointCountUI(name);
+  });
+  state.stage="raw";
+  state.rawMeta={
+    source:meta?.source||"encoder",
+    sequence:(state.rawMeta?.sequence||0)+1,
+    capturedAt:meta?.capturedAt||Date.now()
+  };
+}
+
+function simulateEncoderCapture(){
+  return Object.fromEntries(AXIS_NAMES.map(name=>[name,simulateEncoderAxis(name)]));
+}
+
+function acceptRawCapture(rawByAxis,meta){
+  if(play.on) pausePlay();
+  ingestRawCapture(rawByAxis,meta);
+  resetScaleUI(); resetMoveUI(); resetTimeZoom(false);
+  undoStack=[]; redoStack=[]; updateUndoRedo();
+  state.loadedPreset=-1; markDirty();
+  if(state.pinEnds) capturePins();
+  const [a]=pathRange(); play.t=a; motor.t=a; play.synced=false; play.dir=1; play.on=false;
+  resetPlayUI(); renderPresets(); updateButtons(); draw();
+}
+
+function regenAll(){
+  acceptRawCapture(simulateEncoderCapture(),{source:"simulator"});
+}
+
+window.CineHeadHMI=window.CineHeadHMI||{};
+window.CineHeadHMI.ingestEncoderRaw=(rawByAxis,meta)=>acceptRawCapture(rawByAxis,{...meta,source:meta?.source||"encoder"});
 
 // ---------- Kalman (등속 모델) + RTS 평활 ----------
 function kalmanSmooth(values, dtSec, strength){
@@ -684,30 +885,42 @@ function computeFiltered(){
     const a = axes[name];
     const src = a.points;
     if (src.length < 2){ a.filtered = src.map(p=>({t:p.t,deg:p.deg})); return; }
-    const dtSec = (src[1].t - src[0].t)/1000 || (1/Math.max(0.2,a.density));
+    const dtSec = ((src[src.length-1].t-src[0].t)/Math.max(1,src.length-1))/1000 || .1;
     const vals = src.map(p=>p.deg);
     let sm;
     if (state.superSmooth){
-      // SUPER SMOOTH: 칼만 무시, 모난 곳 없는 완전한 S-Curve 모션 프로필 추종
-      sm = sCurveRetime(heavySmooth(vals, 40));
+      // SUPER SMOOTH: 칼만을 우회하고 이상적인 가속-정속-감속 모델을 100% 적용
+      sm = idealSCurveValues(src);
     } else {
       const k = state.fltStrength/100;
-      const kf = kalmanSmooth(vals, dtSec, state.fltStrength);  // 1) 칼만필터로 노이즈 제거
-      const model = sCurveRetime(kf);                           // 2) S-Curve 추종 모델로 타이밍 정형
-      sm = vals.map((v,i)=> v*(1-k) + model[i]*k );             // 강도 0%=원본, 100%=모델 추종
+      const s = state.sCurveStrength/100;
+      const kf = k>0 ? kalmanSmooth(vals,dtSec,state.fltStrength) : vals;
+      const denoised = vals.map((v,i)=>v*(1-k)+kf[i]*k);
+      const ideal = idealSCurveValues(src);
+      sm = denoised.map((v,i)=>v*(1-s)+ideal[i]*s);
     }
     a.filtered = src.map((p,i)=>({ t:p.t, deg: Math.max(-DEG_MAX,Math.min(DEG_MAX,sm[i])) }));
     // 시작/끝 영역 이징도 동일한 S-Curve 모델을 따름 (선택 축, SUPER SMOOTH 시 생략)
     if (!state.superSmooth && state.ease && state.easeAxes[name]) sCurveRegion(a.filtered, 0.85);
     applyPins(a.filtered, name);   // IN/OUT 고정 시 끝점 절대 유지
+    a.resampleDirty=true;          // FLT 설정 변경 후 포인트 수 조절 시 최신 곡선을 기준으로 사용
   });
 }
 
 // ---------- 좌표 변환 ----------
-const tToX = t => plot.x + (t/T_MAX)*plot.w;
-const degToY = d => plot.y + plot.h/2 - (d/DEG_MAX)*(plot.h/2);
-const xToT = px => ((px-plot.x)/plot.w)*T_MAX;
-const yToDeg = py => ((plot.y+plot.h/2 - py)/(plot.h/2))*DEG_MAX;
+const timeViewSpan = () => Math.max(1,state.timeViewEnd-state.timeViewStart);
+// Y축 표시 반경(±). 축범위 슬라이더 값과 동일.
+const halfRange = () => state.rangeDeg;
+const tToX = t => plot.x + ((t-state.timeViewStart)/timeViewSpan())*plot.w;
+const degToY = d => plot.y + plot.h/2 - (d/halfRange())*(plot.h/2);
+const xToT = px => state.timeViewStart+((px-plot.x)/plot.w)*timeViewSpan();
+const yToDeg = py => ((plot.y+plot.h/2 - py)/(plot.h/2))*halfRange();
+let velocityProfiles = Object.fromEntries(AXIS_NAMES.map(n=>[n,[]]));
+let motionProfiles = Object.fromEntries(AXIS_NAMES.map(n=>[n,{position:[],velocity:[]} ]));
+let velocityLimit = 10;
+const graphToY = value => state.viewMode==="speed"
+  ? plot.y + plot.h/2 - (value/velocityLimit)*(plot.h/2)
+  : degToY(value);
 
 // ---------- 렌더 ----------
 function resize(){
@@ -715,7 +928,7 @@ function resize(){
   dpr = Math.max(1, window.devicePixelRatio||1);
   cv.width = r.width*dpr; cv.height = r.height*dpr;
   ctx.setTransform(dpr,0,0,dpr,0,0);
-  plot = { x: 52, y: 38, w: r.width-72, h: r.height-72 };
+  plot = { x: 58, y: 38, w: r.width-78, h: r.height-72 };
   draw();
 }
 
@@ -723,66 +936,94 @@ function drawGrid(){
   ctx.clearRect(0,0,cv.width,cv.height);
   // 배경
   ctx.fillStyle = "#0a0e13"; ctx.fillRect(0,0,plot.x+plot.w+30, plot.y+plot.h+40);
-  const minorX = Math.max(200, 2500*state.gridScaleX), minorY = Math.max(4.5, 45*state.gridScaleY);
+  const visibleSpan=timeViewSpan();
+  const majorX=visibleSpan<=6000?1000:(visibleSpan<=15000?2500:5000);
+  const minorX=Math.max(100,(2500/TIME_ZOOM_LEVELS[state.timeZoomIndex])*state.gridScaleX);
   // 세로선
   ctx.lineWidth = 1; ctx.font = "10px Segoe UI"; ctx.textAlign="center";
-  for(let t=0;t<=T_MAX+1;t+=minorX){
+  const gridStart=Math.ceil(state.timeViewStart/minorX)*minorX;
+  for(let t=gridStart;t<=state.timeViewEnd+1;t+=minorX){
     const x = tToX(t);
-    const major = Math.abs(t % 5000) < 1;
-    ctx.strokeStyle = major ? "#2b3a4d" : "#18222e";
+    ctx.strokeStyle = "#18222e";
     ctx.beginPath(); ctx.moveTo(x,plot.y); ctx.lineTo(x,plot.y+plot.h); ctx.stroke();
-    if (major){ ctx.fillStyle="#6b7a8a"; ctx.fillText((t/1000)+"s", x, plot.y+plot.h+16); }
   }
-  // 가로선
+  const majorStart=Math.ceil(state.timeViewStart/majorX)*majorX;
+  for(let t=majorStart;t<=state.timeViewEnd+1;t+=majorX){
+    const x=tToX(t);
+    ctx.strokeStyle="#2b3a4d";
+    ctx.beginPath();ctx.moveTo(x,plot.y);ctx.lineTo(x,plot.y+plot.h);ctx.stroke();
+    ctx.fillStyle="#6b7a8a";ctx.fillText((t/1000)+"s",x,plot.y+plot.h+16);
+  }
+  // 가로선: 위치는 고정 ±360°, 속도는 현재 프로필에 맞춰 signed velocity 자동 스케일
   ctx.textAlign="right";
-  for(let d=-DEG_MAX; d<=DEG_MAX+1; d+=minorY){
-    const y = degToY(d);
-    const isZero = Math.abs(d) < 1;
-    const major = Math.abs(d % 90) < 1;
-    ctx.strokeStyle = isZero ? "#5a7da0" : (major ? "#2b3a4d" : "#18222e");
-    ctx.lineWidth = isZero ? 1.6 : 1;
-    ctx.beginPath(); ctx.moveTo(plot.x,y); ctx.lineTo(plot.x+plot.w,y); ctx.stroke();
-    if (major){ ctx.fillStyle = isZero ? "#9fc0e0" : "#6b7a8a"; ctx.fillText(d+"°", plot.x-8, y+3); }
+  if(state.viewMode==="speed"){
+    const step=velocityLimit/4;
+    for(let i=-4;i<=4;i++){
+      const v=i*step, y=graphToY(v), isZero=i===0;
+      ctx.strokeStyle=isZero?"#5a7da0":(i%2===0?"#2b3a4d":"#18222e");
+      ctx.lineWidth=isZero?1.6:1;
+      ctx.beginPath(); ctx.moveTo(plot.x,y); ctx.lineTo(plot.x+plot.w,y); ctx.stroke();
+      ctx.fillStyle=isZero?"#9fc0e0":"#6b7a8a";
+      const digits=Math.abs(step)<1?1:0;
+      ctx.fillText(v.toFixed(digits)+"°/s",plot.x-8,y+3);
+    }
+  } else {
+    const half = halfRange();
+    const majorStep = niceDegStep(half);
+    const minorY = Math.max(majorStep/20, (majorStep/2)*state.gridScaleY);
+    // 보조선
+    for(let d=-half; d<=half+0.5; d+=minorY){
+      if(Math.abs(d) < 1e-6) continue;
+      const y = degToY(d);
+      ctx.strokeStyle = "#18222e"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(plot.x,y); ctx.lineTo(plot.x+plot.w,y); ctx.stroke();
+    }
+    // 주선 + 라벨 (majorStep 간격), 0선 강조
+    for(let d=Math.ceil(-half/majorStep)*majorStep; d<=half+0.5; d+=majorStep){
+      const y = degToY(d), isZero = Math.abs(d) < 1e-6;
+      ctx.strokeStyle = isZero ? "#5a7da0" : "#2b3a4d";
+      ctx.lineWidth = isZero ? 1.6 : 1;
+      ctx.beginPath(); ctx.moveTo(plot.x,y); ctx.lineTo(plot.x+plot.w,y); ctx.stroke();
+      ctx.fillStyle = isZero ? "#9fc0e0" : "#6b7a8a";
+      ctx.fillText(Math.round(d)+"°", plot.x-8, y+3);
+    }
   }
   ctx.lineWidth = 1;
 }
 
-function drawPolyline(pts, color, dashed){
+function drawPolyline(pts, color, dashed, width){
   if (pts.length<2) return;
-  ctx.strokeStyle = color; ctx.lineWidth = 2;
+  ctx.save(); ctx.beginPath(); ctx.rect(plot.x,plot.y,plot.w,plot.h); ctx.clip();
+  ctx.strokeStyle = color; ctx.lineWidth = width||2;
   ctx.setLineDash(dashed?[5,4]:[]);
   ctx.beginPath();
-  pts.forEach((p,i)=>{ const x=tToX(p.t), y=degToY(p.deg); i?ctx.lineTo(x,y):ctx.moveTo(x,y); });
-  ctx.stroke(); ctx.setLineDash([]);
+  pts.forEach((p,i)=>{ const x=tToX(p.t), y=graphToY(p.deg); i?ctx.lineTo(x,y):ctx.moveTo(x,y); });
+  ctx.stroke(); ctx.setLineDash([]); ctx.restore();
 }
 
-function drawSpline(pts, color){
-  if (pts.length<2) return;
-  ctx.strokeStyle = color; ctx.lineWidth = 2.4; ctx.setLineDash([]);
+function drawPositionCurve(curve, color, width){
+  if (curve.length<2) return;
+  ctx.save(); ctx.beginPath(); ctx.rect(plot.x,plot.y,plot.w,plot.h); ctx.clip();
+  ctx.strokeStyle = color; ctx.lineWidth = width||2.4; ctx.setLineDash([]);
   ctx.beginPath();
-  ctx.moveTo(tToX(pts[0].t), degToY(pts[0].deg));
-  for(let i=0;i<pts.length-1;i++){
-    const p0=pts[i>0?i-1:0], p1=pts[i], p2=pts[i+1], p3=pts[i+2<pts.length?i+2:i+1];
-    for(let s=1;s<=12;s++){
-      const u=s/12, u2=u*u, u3=u2*u;
-      const t = 0.5*((2*p1.t)+(-p0.t+p2.t)*u+(2*p0.t-5*p1.t+4*p2.t-p3.t)*u2+(-p0.t+3*p1.t-3*p2.t+p3.t)*u3);
-      const d = 0.5*((2*p1.deg)+(-p0.deg+p2.deg)*u+(2*p0.deg-5*p1.deg+4*p2.deg-p3.deg)*u2+(-p0.deg+3*p1.deg-3*p2.deg+p3.deg)*u3);
-      ctx.lineTo(tToX(t), degToY(d));
-    }
-  }
-  ctx.stroke();
+  curve.forEach((p,i)=>i?ctx.lineTo(tToX(p.t),degToY(p.deg)):ctx.moveTo(tToX(p.t),degToY(p.deg)));
+  ctx.stroke(); ctx.restore();
 }
+function drawSpline(pts,color,width){ drawPositionCurve(buildMotionProfile(pts,36).position,color,width); }
 
 function drawPoints(pts, color){
+  ctx.save(); ctx.beginPath(); ctx.rect(plot.x,plot.y,plot.w,plot.h); ctx.clip();
   pts.forEach(p=>{
     ctx.fillStyle = color; ctx.strokeStyle = "#0b0f14"; ctx.lineWidth=2;
     ctx.beginPath(); ctx.arc(tToX(p.t), degToY(p.deg), 7, 0, Math.PI*2); ctx.fill(); ctx.stroke();
   });
+  ctx.restore();
 }
 
 function curPts(name){ return state.stage==="flt" ? axes[name].filtered : axes[name].points; }
 
 function drawEaseRegions(){
+  if(state.viewMode!=="position") return;
   if(!state.ease) return;
   const target = AXIS_NAMES.find(n=>state.easeAxes[n]);
   if(!target) return;
@@ -793,9 +1034,11 @@ function drawEaseRegions(){
   const xe = tToX(t0 + state.endPct/100*span);
   const rgb = {pan:"56,189,248",tilt:"245,165,36",zoom:"167,139,250",focus:"251,113,133"}[target];
   const c = `rgba(${rgb},.09)`;
+  ctx.save(); ctx.beginPath(); ctx.rect(plot.x,plot.y,plot.w,plot.h); ctx.clip();
   ctx.fillStyle = c;
   ctx.fillRect(tToX(t0), plot.y, xs-tToX(t0), plot.h);
   ctx.fillRect(xe, plot.y, tToX(t1)-xe, plot.h);
+  ctx.restore();
 }
 
 function degAt(pts, t){
@@ -811,15 +1054,319 @@ function degAt(pts, t){
   return pts[pts.length-1].deg;
 }
 
+// ---------- 속도 프로필 (C1 Hermite 위치식의 해석 미분, signed °/s) ----------
+// 포인트를 시간순으로 정리하고 동일 시간 포인트는 마지막 값으로 병합한다.
+function normalizedMotionPoints(pts){
+  const sorted=pts
+    .filter(p=>Number.isFinite(p.t)&&Number.isFinite(p.deg))
+    .map(p=>({t:p.t,deg:p.deg})).sort((a,b)=>a.t-b.t);
+  const out=[];
+  sorted.forEach(p=>{
+    if(out.length && Math.abs(out[out.length-1].t-p.t)<.001) out[out.length-1]=p;
+    else out.push(p);
+  });
+  return out;
+}
+
+// 5차 smootherstep의 정적분. 가속/감속 구간의 이동거리 계산에 사용한다.
+function smootherstepIntegral(u){
+  u=Math.max(0,Math.min(1,u));
+  return u*u*u*u*(u*u-3*u+2.5);
+}
+
+// 정규화된 가속-정속-감속 위치 진행도. 4포인트일 때 각 구간이 가속/정속/감속에 대응한다.
+function trapezoidSCurveProgress(u, ramp){
+  u=Math.max(0,Math.min(1,u));
+  ramp=Math.max(.08,Math.min(.4,ramp));
+  const vmax=1/(1-ramp);
+  if(u<ramp) return vmax*ramp*smootherstepIntegral(u/ramp);
+  if(u<=1-ramp) return vmax*(ramp*.5+(u-ramp));
+  return 1-vmax*ramp*smootherstepIntegral((1-u)/ramp);
+}
+
+function motionPhaseRanges(src){
+  const phases=[]; let start=0, prevSign=0;
+  for(let i=0;i<src.length-1;i++){
+    const dd=src[i+1].deg-src[i].deg;
+    const sign=Math.abs(dd)<1e-9?0:Math.sign(dd);
+    if(sign && prevSign && sign!==prevSign){ phases.push([start,i]); start=i; }
+    if(sign) prevSign=sign;
+  }
+  phases.push([start,src.length-1]);
+  return phases;
+}
+
+// 방향 전환점은 보존하면서 각 단조 구간을 이상적인 S-Curve 모션으로 재구성한다.
+function idealSCurveValues(src){
+  const n=src.length, out=src.map(p=>p.deg);
+  if(n<2) return out;
+  const phases=motionPhaseRanges(src);
+  phases.forEach(([a,b])=>{
+    if(b<=a) return;
+    const t0=src[a].t, t1=src[b].t, span=(t1-t0)||1;
+    const d0=src[a].deg, d1=src[b].deg;
+    const ramp=Math.max(.22,Math.min(1/3,1/Math.max(1,b-a)));
+    for(let i=a;i<=b;i++){
+      const u=(src[i].t-t0)/span;
+      out[i]=d0+(d1-d0)*trapezoidSCurveProgress(u,ramp);
+    }
+  });
+  return out;
+}
+
+// PCHIP/Fritsch-Carlson 계열 접선: 모양을 보존하고 포인트 사이 오버슈트를 방지한다.
+// 시작·끝 접선은 0으로 고정하여 실제 모션처럼 정지 상태에서 출발/정지한다.
+function motionTangents(p){
+  const n=p.length, h=[], delta=[], m=new Array(n).fill(0);
+  for(let i=0;i<n-1;i++){
+    h[i]=p[i+1].t-p[i].t;
+    delta[i]=(p[i+1].deg-p[i].deg)/h[i];
+  }
+  for(let i=1;i<n-1;i++){
+    const a=delta[i-1], b=delta[i];
+    if(a===0 || b===0 || Math.sign(a)!==Math.sign(b)){ m[i]=0; continue; }
+    const w1=2*h[i]+h[i-1], w2=h[i]+2*h[i-1];
+    m[i]=(w1+w2)/(w1/a+w2/b);
+  }
+  return m;
+}
+
+// 각 세그먼트의 위치와 속도를 동일한 Hermite 식에서 함께 샘플링한다.
+function buildMotionProfile(pts, stepsPerSegment){
+  const p=normalizedMotionPoints(pts), position=[], velocity=[];
+  if(p.length<2) return {position:p,velocity:[{t:0,deg:0},{t:T_MAX,deg:0}]};
+  const m=motionTangents(p), steps=stepsPerSegment||32;
+  position.push({t:p[0].t,deg:p[0].deg});
+  velocity.push({t:0,deg:0},{t:p[0].t,deg:0});
+  for(let i=0;i<p.length-1;i++){
+    const a=p[i], b=p[i+1], h=b.t-a.t;
+    for(let s=0;s<=steps;s++){
+      if(i>0 && s===0) continue;
+      const u=s/steps, u2=u*u, u3=u2*u;
+      const h00=2*u3-3*u2+1, h10=u3-2*u2+u;
+      const h01=-2*u3+3*u2, h11=u3-u2;
+      const deg=h00*a.deg+h10*h*m[i]+h01*b.deg+h11*h*m[i+1];
+      const dydu=(6*u2-6*u)*a.deg+(3*u2-4*u+1)*h*m[i]+(-6*u2+6*u)*b.deg+(3*u2-2*u)*h*m[i+1];
+      const t=a.t+u*h;
+      position.push({t,deg});
+      velocity.push({t,deg:1000*dydu/h});
+    }
+  }
+  const last=p[p.length-1].t;
+  velocity.push({t:last,deg:0},{t:T_MAX,deg:0});
+  return {position,velocity};
+}
+
+function trapezoidSCurveVelocity(u,ramp){
+  u=Math.max(0,Math.min(1,u));
+  const vmax=1/(1-ramp);
+  if(u<ramp) return vmax*smootherstep(u/ramp);
+  if(u<=1-ramp) return vmax;
+  return vmax*smootherstep((1-u)/ramp);
+}
+
+// S-Curve 100% 전용 분석 프로필: 위치식과 그 해석 미분을 같은 샘플에서 생성한다.
+function buildIdealMotionProfile(pts,stepsPerSegment){
+  const p=normalizedMotionPoints(pts), position=[], velocity=[];
+  if(p.length<2) return buildMotionProfile(p,stepsPerSegment);
+  velocity.push({t:0,deg:0},{t:p[0].t,deg:0});
+  motionPhaseRanges(p).forEach(([a,b],phaseIndex)=>{
+    if(b<=a) return;
+    const t0=p[a].t,t1=p[b].t,span=(t1-t0)||1,d0=p[a].deg,d1=p[b].deg;
+    const ramp=Math.max(.22,Math.min(1/3,1/Math.max(1,b-a)));
+    const steps=Math.max(24,(stepsPerSegment||36)*(b-a));
+    for(let s=0;s<=steps;s++){
+      if((phaseIndex>0||position.length) && s===0) continue;
+      const u=s/steps,t=t0+span*u;
+      position.push({t,deg:d0+(d1-d0)*trapezoidSCurveProgress(u,ramp)});
+      velocity.push({t,deg:(d1-d0)*trapezoidSCurveVelocity(u,ramp)/(span/1000)});
+    }
+  });
+  const last=p[p.length-1].t;
+  velocity.push({t:last,deg:0},{t:T_MAX,deg:0});
+  return {position,velocity};
+}
+
+function regularizeMotionPhase(phasePts,sigmaRatio){
+  const p=normalizedMotionPoints(phasePts);
+  if(p.length<2) return buildMotionProfile(p,36);
+  const base=buildMotionProfile(p,24),t0=p[0].t,t1=p[p.length-1].t,span=(t1-t0)||1;
+  const count=Math.max(96,Math.min(720,Math.ceil(span/40)));
+  const times=Array.from({length:count+1},(_,i)=>t0+span*i/count);
+  const src=times.map(t=>degAt(base.velocity,t));
+  const dt=span/count,sigma=Math.max(40,Math.min(2400,span*sigmaRatio));
+  const radius=Math.max(2,Math.ceil(3*sigma/dt)),kernel=[];
+  for(let k=-radius;k<=radius;k++) kernel.push(Math.exp(-.5*Math.pow(k*dt/sigma,2)));
+  const ksum=kernel.reduce((a,b)=>a+b,0),last=src.length-1;
+  function oddSample(index){
+    let i=index,sign=1;
+    while(i<0||i>last){
+      if(i<0){i=-i;sign*=-1;}
+      if(i>last){i=2*last-i;sign*=-1;}
+    }
+    return sign*src[i];
+  }
+  const speed=src.map((_,i)=>{
+    let sum=0;
+    for(let k=-radius;k<=radius;k++) sum+=oddSample(i+k)*kernel[k+radius];
+    return sum/ksum;
+  });
+  speed[0]=0; speed[last]=0;
+
+  let area=0;
+  for(let i=1;i<=last;i++) area+=(speed[i-1]+speed[i])*.5*((times[i]-times[i-1])/1000);
+  const target=p[p.length-1].deg-p[0].deg;
+  if(Math.abs(area)>1e-9){ const gain=target/area; for(let i=0;i<=last;i++) speed[i]*=gain; }
+
+  const position=[{t:times[0],deg:p[0].deg}];
+  for(let i=1;i<=last;i++){
+    const deg=position[i-1].deg+(speed[i-1]+speed[i])*.5*((times[i]-times[i-1])/1000);
+    position.push({t:times[i],deg});
+  }
+  position[last].deg=p[p.length-1].deg;
+  return {position,velocity:times.map((t,i)=>({t,deg:speed[i]}))};
+}
+
+// FLT 중간 추종률용 물리 프로필: 방향 전환별 속도를 정규화한 뒤 다시 적분한다.
+function buildRegularizedMotionProfile(pts){
+  const p=normalizedMotionPoints(pts),position=[],velocity=[];
+  if(p.length<2) return buildMotionProfile(p,36);
+  const sigmaRatio=.075+.045*(1-state.sCurveStrength/100);
+  velocity.push({t:0,deg:0},{t:p[0].t,deg:0});
+  motionPhaseRanges(p).forEach(([a,b])=>{
+    if(b<=a) return;
+    const phase=regularizeMotionPhase(p.slice(a,b+1),sigmaRatio);
+    phase.position.forEach((q,i)=>{ if(!position.length||i>0) position.push(q); });
+    phase.velocity.forEach((q,i)=>{ if(i>0) velocity.push(q); });
+  });
+  const last=p[p.length-1].t;
+  velocity.push({t:last,deg:0},{t:T_MAX,deg:0});
+  return {position,velocity};
+}
+
+// RAW/EDIT 속도 뷰어용 초경량 평활: 3차 Hermite 미분의 뾰족한 모서리(가속도 불연속)·스파이크만 둥글린다.
+// 위치 추세(혹/엔벨로프)는 유지하고, 시작·끝 0속도 앵커는 고정. FLT 정밀 곡선과는 가는 선으로 구분(§drawVelocityPaths).
+function lightSmoothVelocity(vel){
+  const n=vel.length;
+  if(n<6) return vel;
+  const out=vel.map(p=>({t:p.t,deg:p.deg}));
+  const kernel=[1,4,6,4,1], ksum=16, rad=2, passes=3;
+  for(let pass=0;pass<passes;pass++){
+    const prev=out.map(p=>p.deg);
+    for(let i=2;i<n-2;i++){
+      let s=0;
+      for(let k=-rad;k<=rad;k++) s+=prev[i+k]*kernel[k+rad];
+      out[i].deg=s/ksum;
+    }
+  }
+  out[0].deg=0; out[1].deg=0; out[n-2].deg=0; out[n-1].deg=0;   // 끝단 0속도 앵커 보존
+  return out;
+}
+
+function buildExecutionProfile(pts,stage){
+  const mode=stage||state.stage;
+  if(mode==="flt"){
+    if(state.superSmooth||state.sCurveStrength>=99.999) return buildIdealMotionProfile(pts,36);
+    return buildRegularizedMotionProfile(pts);
+  }
+  // RAW/EDIT: 위치경로 탭과 동일한 Hermite 곡선을 사용하고, 속도는 그 곡선의 해석 미분에
+  // 초경량 평활을 적용한다(뾰족한 모서리만 둥글림). 위치 추세는 그대로 추종 → 두 탭 연동 유지.
+  const direct=buildMotionProfile(pts,36);
+  return {position:direct.position,velocity:lightSmoothVelocity(direct.velocity)};
+}
+
+// Y축 라벨 간격: 표시 반경(half)에 맞춰 약 4~8개의 주선이 나오도록 선택
+function niceDegStep(half){
+  const opts=[5,10,15,30,45,90,180,360];
+  for(const o of opts){ if(half/o<=4) return o; }
+  return 360;
+}
+function niceVelocityLimit(maxAbs){
+  maxAbs=Math.max(10,maxAbs*1.12);
+  const pow=Math.pow(10,Math.floor(Math.log10(maxAbs)));
+  const n=maxAbs/pow;
+  return (n<=1?1:n<=2?2:n<=5?5:10)*pow;
+}
+function rebuildMotionProfiles(){
+  let maxAbs=0;
+  AXIS_NAMES.forEach(name=>{
+    const profile=buildExecutionProfile(curPts(name),state.stage);
+    motionProfiles[name]=profile;
+    velocityProfiles[name]=profile.velocity;
+    profile.velocity.forEach(p=>{ if(Number.isFinite(p.deg)) maxAbs=Math.max(maxAbs,Math.abs(p.deg)); });
+  });
+  velocityLimit=niceVelocityLimit(maxAbs);
+}
+function graphValueAt(name,t){
+  return state.viewMode==="speed" ? degAt(velocityProfiles[name],t) : degAt(motionProfiles[name].position,t);
+}
+function drawVelocityPaths(){
+  // FLT: 정밀 실행 곡선(굵게). RAW/EDIT: 평활된 RAW 속도(가는 선) — 사인파 느낌으로 FLT와 구분.
+  const w = state.stage==="flt" ? 2.4 : 1.3;
+  AXIS_NAMES.forEach(name=>drawPolyline(velocityProfiles[name],COL[name],false,w));
+}
+
+function motorDialMarkup(axis){
+  const id = "motor-" + axis;
+  const tickAngles = [];
+  for(let base=0; base<360; base+=45){
+    tickAngles.push({ deg:base, primary:true });
+    [15,30].forEach(off=>tickAngles.push({ deg:base+off, primary:false }));
+  }
+  const ticks = tickAngles.map(tick=>{
+    const i = tick.deg;
+    const a = (i - 90) * Math.PI / 180;
+    const primary = tick.primary;
+    const r1 = primary ? 332 : 354;
+    const r2 = 390;
+    const x1 = (297.64 + Math.cos(a)*r1).toFixed(2);
+    const y1 = (420.95 + Math.sin(a)*r1).toFixed(2);
+    const x2 = (297.64 + Math.cos(a)*r2).toFixed(2);
+    const y2 = (420.95 + Math.sin(a)*r2).toFixed(2);
+    const cls = primary ? "svg-index-primary" : "svg-index-major";
+    return `<line class="${cls}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`;
+  }).join("");
+  return `
+    <defs>
+    </defs>
+    <g class="svg-index-ring">${ticks}</g>
+    <g class="svg-motor-body-group">
+      <path class="svg-motor-body" d="M467.64,640.95h-340c-19.53-19.53-30.47-30.47-50-50v-340c19.53-19.53,30.47-30.47,50-50h340c19.53,19.53,30.47,30.47,50,50v340C498.11,610.47,487.16,621.42,467.64,640.95z"/>
+      <circle class="svg-motor-dish" cx="297.64" cy="420.95" r="148.13"/>
+    </g>
+    <g class="motor-hand">
+      <path class="svg-hand" d="M695.55,420.25l-395.53-27.24c-16.19-1.11-29.93,11.71-29.93,27.94c0,16.22,13.74,29.05,29.93,27.94l395.53-27.24C696.42,421.58,696.42,420.31,695.55,420.25z"/>
+    </g>
+  `;
+}
+function initMotorDials(){
+  document.querySelectorAll(".motor-card").forEach(card=>{
+    const axis = card.dataset.motor;
+    const svg = card.querySelector(".motor-dial");
+    if(svg && axis) svg.innerHTML = motorDialMarkup(axis);
+  });
+}
+function updateMotorDials(){
+  document.querySelectorAll(".motor-card").forEach(card=>{
+    const axis = card.dataset.motor;
+    const deg = degAt(motionProfiles[axis]?.position||curPts(axis), motor.t);
+    const hand = card.querySelector(".motor-hand");
+    const out = card.querySelector(".motor-readout");
+    if(hand) hand.setAttribute("transform", "rotate(" + (deg - 90) + " 297.64 420.95)");
+    if(out) out.textContent = deg.toFixed(1) + "°";
+  });
+}
+
 function pathRange(){
-  const first=Math.min(...AXIS_NAMES.map(n=>axes[n].points[0]?.t ?? T_MAX));
-  const last=Math.max(...AXIS_NAMES.map(n=>axes[n].points.length ? axes[n].points[axes[n].points.length-1].t : 0));
+  const first=Math.min(...AXIS_NAMES.map(n=>axes[n].points.length?Math.min(...axes[n].points.map(p=>p.t)):T_MAX));
+  const last=Math.max(...AXIS_NAMES.map(n=>axes[n].points.length?Math.max(...axes[n].points.map(p=>p.t)):0));
   return [Number.isFinite(first)?first:0, last||T_MAX];
 }
 
 // 공통: 시간 커서 막대 그리기 (opt: {dash, thin, head})
 function drawCursor(t, color, opt){
   opt = opt || {};
+  if(t<state.timeViewStart||t>state.timeViewEnd) return;
   const x=tToX(t);
   ctx.strokeStyle=color; ctx.lineWidth = opt.thin ? 1.3 : 2.4;
   ctx.setLineDash(opt.dash || []);
@@ -834,9 +1381,9 @@ function drawCursor(t, color, opt){
     else { ctx.fillStyle=color; ctx.fill(); }
   }
   AXIS_NAMES.forEach(name=>{
-    const d=degAt(curPts(name), t);
+    const d=graphValueAt(name,t);
     ctx.fillStyle = COL[name]; ctx.strokeStyle=color; ctx.lineWidth = opt.thin?1.4:2;
-    ctx.beginPath(); ctx.arc(x, degToY(d), opt.thin?4:6.5, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(x, graphToY(d), opt.thin?4:6.5, 0, Math.PI*2); ctx.fill(); ctx.stroke();
   });
 }
 
@@ -885,6 +1432,7 @@ function jogHit(mx,my){
   return null;
 }
 function playheadHit(mx,my){
+  if(state.viewMode!=="position") return false;
   const x=tToX(play.t);
   if(my>=plot.y-24 && my<=plot.y+16 && Math.abs(mx-x)<=14) return true;  // 상단 핸들(크게)
   if(Math.abs(mx-x)<=7) return true;                                      // 막대 전체(모든 모드)
@@ -906,6 +1454,7 @@ function setPlayheadT(t, snap){
   const [a,b]=pathRange();
   if(snap) t = snapPlayheadTime(t);
   play.t = Math.max(a, Math.min(b, t));
+  ensureTimeVisible(play.t);
   play.synced = Math.abs(play.t-motor.t) < 1;
   updatePlayBtn(); resetPlayUI(); draw();
 }
@@ -921,27 +1470,38 @@ function jogLabel(){
   if(val) val.textContent = sec.toFixed(2)+"s";
 }
 
-function draw(){
+// skipRebuild: 경로/필터가 바뀌지 않는 프레임(재생·모터 애니메이션)에서 프로필 재계산을 생략.
+// 저사양 컴패니언 브라우저(ESP32 SoftAP 접속 기기)에서 60fps 재생 시 CPU 부하를 크게 줄인다.
+function draw(skipRebuild){
+  if(!skipRebuild) rebuildMotionProfiles();
   drawGrid();
-  drawEaseRegions();
-  if (state.stage === "raw"){
-    AXIS_NAMES.forEach(n=>drawPolyline(axes[n].points, COL[n]));
-    AXIS_NAMES.forEach(n=>drawPoints(axes[n].points, COL[n]));
-  } else if (state.stage === "flt"){
-    ctx.globalAlpha=.25; AXIS_NAMES.forEach(n=>drawPolyline(axes[n].raw, COL[n])); ctx.globalAlpha=1;
-    AXIS_NAMES.forEach(n=>drawSpline(axes[n].filtered, COL[n]));
-  } else if (state.stage === "edit"){
-    ctx.globalAlpha=.20; AXIS_NAMES.forEach(n=>drawPolyline(axes[n].raw, COL[n])); ctx.globalAlpha=1;
-    AXIS_NAMES.forEach(n=>drawPolyline(axes[n].points, COL[n]));
-    AXIS_NAMES.forEach(n=>drawPoints(axes[n].points, COL[n]));
+  if(state.viewMode==="speed"){
+    drawVelocityPaths();
+  } else {
+    drawEaseRegions();
+    if (state.stage === "raw"){
+      ctx.globalAlpha=.18;
+      AXIS_NAMES.filter(n=>axes[n].raw.length>axes[n].points.length).forEach(n=>drawSpline(axes[n].raw,COL[n],1.4));
+      ctx.globalAlpha=1;
+      AXIS_NAMES.forEach(n=>drawPositionCurve(motionProfiles[n].position,COL[n]));
+      AXIS_NAMES.forEach(n=>drawPoints(axes[n].points, COL[n]));
+    } else if (state.stage === "flt"){
+      ctx.globalAlpha=.25; AXIS_NAMES.forEach(n=>drawSpline(axes[n].raw,COL[n],1.6)); ctx.globalAlpha=1;
+      AXIS_NAMES.forEach(n=>drawPositionCurve(motionProfiles[n].position,COL[n]));
+    } else if (state.stage === "edit"){
+      ctx.globalAlpha=.20; AXIS_NAMES.forEach(n=>drawSpline(axes[n].raw,COL[n],1.6)); ctx.globalAlpha=1;
+      AXIS_NAMES.forEach(n=>drawPositionCurve(motionProfiles[n].position,COL[n]));
+      AXIS_NAMES.forEach(n=>drawPoints(axes[n].points, COL[n]));
+    }
   }
   drawMotorBar();
-  drawPlayhead();
+  if(state.viewMode==="position") drawPlayhead();
+  updateMotorDials();
 }
 
 // ---------- 포인트 편집 ----------
 let drag = null; // {axis, idx}
-function editable(){ return state.stage==="raw" || state.stage==="edit"; }
+function editable(){ return state.viewMode==="position" && (state.stage==="raw" || state.stage==="edit"); }
 
 function hitTest(mx,my){
   let best=null, bestD=22*22;
@@ -955,8 +1515,19 @@ function hitTest(mx,my){
 }
 
 // ---------- Undo/Redo (포인트 편집, 최대 20단계) ----------
-function snapshot(){ return Object.fromEntries(AXIS_NAMES.map(n=>[n,axes[n].points.map(p=>({...p}))])); }
-function restore(s){ AXIS_NAMES.forEach(n=>axes[n].points=(s[n]||[]).map(p=>({...p}))); }
+function snapshot(){
+  const s=Object.fromEntries(AXIS_NAMES.map(n=>[n,axes[n].points.map(p=>({...p}))]));
+  s.__pointCounts=Object.fromEntries(AXIS_NAMES.map(n=>[n,axes[n].pointCount]));
+  return s;
+}
+function restore(s){
+  AXIS_NAMES.forEach(n=>{
+    axes[n].points=(s[n]||[]).map(p=>({...p}));
+    if(s.__pointCounts?.[n]) axes[n].pointCount=clampPointCount(s.__pointCounts[n]);
+    axes[n].resampleDirty=true;
+    updatePointCountUI(n);
+  });
+}
 function pushHistory(prev){
   undoStack.push(prev); if(undoStack.length>HISTORY_MAX) undoStack.shift();
   redoStack=[]; updateUndoRedo();
@@ -985,6 +1556,7 @@ function doRedo(){
 let dragPrev=null, dragMoved=false, phDrag=false;
 cv.addEventListener("pointerdown", e=>{
   e.preventDefault();
+  if(state.viewMode!=="position") return;
   cv.setPointerCapture?.(e.pointerId);
   const r=cv.getBoundingClientRect();
   const mx=e.clientX-r.left, my=e.clientY-r.top;
@@ -1007,6 +1579,11 @@ cv.addEventListener("pointerdown", e=>{
 });
 // 호버 글로우(조그 버튼) + 플레이헤드 롤오버 커서 변경
 cv.addEventListener("pointermove", e=>{
+  if(state.viewMode!=="position"){
+    if(jogHover!==null){ jogHover=null; draw(); }
+    cv.style.cursor="default";
+    return;
+  }
   if(drag || phDrag) return;
   const r=cv.getBoundingClientRect();
   const mx=e.clientX-r.left, my=e.clientY-r.top;
@@ -1033,13 +1610,17 @@ window.addEventListener("pointermove", e=>{
   t = Math.max(0, Math.min(T_MAX, t));
   d = Math.max(-DEG_MAX, Math.min(DEG_MAX, d));
   const a = axes[drag.axis];
+  const prev=a.points[drag.idx-1],next=a.points[drag.idx+1];
+  if(prev) t=Math.max(t,prev.t+EDIT_TIME_GAP_MS);
+  if(next) t=Math.min(t,next.t-EDIT_TIME_GAP_MS);
   const isEnd = drag.idx===0 || drag.idx===a.points.length-1;
   a.points[drag.idx] = { t, deg: d };
+  a.resampleDirty=true;
   // 끝점 동기화
   if(state.match && isEnd){
     AXIS_NAMES.filter(n=>n!==drag.axis).forEach(n=>{
       const other=axes[n], oi=drag.idx===0?0:other.points.length-1;
-      if(other.points[oi]) other.points[oi].t=t;
+      if(other.points[oi]){ other.points[oi].t=t; other.resampleDirty=true; }
     });
   }
   draw();
@@ -1060,9 +1641,10 @@ function curMaxAbs(mode){
   return m;
 }
 function applyScale(ratio, mode){
-  AXIS_NAMES.filter(n=>state.selectedAxes[n]).forEach(name=> axes[name].points.forEach(p=>{
-    if(mode==="x") p.t = p.t*ratio; else p.deg = p.deg*ratio;
-  }));
+  AXIS_NAMES.filter(n=>state.selectedAxes[n]).forEach(name=>{
+    axes[name].points.forEach(p=>{ if(mode==="x") p.t = p.t*ratio; else p.deg = p.deg*ratio; });
+    axes[name].resampleDirty=true;
+  });
 }
 // 요청 배율을 경계(±끝점)에 닿으면 더 못 키우도록 캡
 function cappedRatio(v, prev, mode){
@@ -1080,18 +1662,81 @@ function cappedRatio(v, prev, mode){
 const $ = id => document.getElementById(id);
 function toast(msg){ const t=$("toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),1600); }
 
+function updateTimeZoomUI(){
+  const zoom=TIME_ZOOM_LEVELS[state.timeZoomIndex];
+  $("timeZoomValue").textContent=(Number.isInteger(zoom)?zoom:zoom.toFixed(1))+"×";
+  $("timeZoomOut").disabled=state.timeZoomIndex===0;
+  $("timeZoomIn").disabled=state.timeZoomIndex===TIME_ZOOM_LEVELS.length-1;
+}
+function centerTimeView(center,span){
+  span=Math.max(T_MAX/TIME_ZOOM_LEVELS[TIME_ZOOM_LEVELS.length-1],Math.min(T_MAX,span));
+  let start=center-span/2;
+  start=Math.max(0,Math.min(T_MAX-span,start));
+  state.timeViewStart=start;
+  state.timeViewEnd=start+span;
+}
+function setTimeZoomIndex(index){
+  state.timeZoomIndex=Math.max(0,Math.min(TIME_ZOOM_LEVELS.length-1,index));
+  centerTimeView(play.t,T_MAX/TIME_ZOOM_LEVELS[state.timeZoomIndex]);
+  updateTimeZoomUI(); draw();
+}
+function resetTimeZoom(redraw){
+  state.timeZoomIndex=0; state.timeViewStart=0; state.timeViewEnd=T_MAX;
+  updateTimeZoomUI(); if(redraw) draw();
+}
+function ensureTimeVisible(t){
+  if(state.timeZoomIndex===0) return;
+  const span=timeViewSpan(),margin=span*.06;
+  if(t<state.timeViewStart+margin||t>state.timeViewEnd-margin) centerTimeView(t,span);
+}
+$("timeZoomOut").addEventListener("click",function(){this.blur();setTimeZoomIndex(state.timeZoomIndex-1);});
+$("timeZoomIn").addEventListener("click",function(){this.blur();setTimeZoomIndex(state.timeZoomIndex+1);});
+// Y축 모터 동작 범위(총 각도) — 단순 줌이 아니라 표시·편집 가능한 ± 각도 범위를 정의
+function updateYRangeUI(){ $("yRangeValue").textContent = "±" + Math.round(state.rangeDeg) + "°"; }
+$("yRange").addEventListener("input", function(){
+  state.rangeDeg = Math.max(45, Math.min(1080, +this.value||360));
+  updateYRangeUI(); draw();
+});
+
+function setViewMode(mode, force){
+  mode=mode==="speed"?"speed":"position";
+  if(!force && state.viewMode===mode) return;
+  state.viewMode=mode;
+  const readOnly=mode==="speed";
+  $("graphWrap").classList.toggle("speed-view",readOnly);
+  $("controlPanel").classList.toggle("viewer-locked",readOnly);
+  $("controlPanel").inert=readOnly;
+  $("controlPanel").setAttribute("aria-disabled",String(readOnly));
+  document.querySelectorAll(".graph-tab").forEach(btn=>{
+    const active=btn.dataset.view===mode;
+    btn.classList.toggle("active",active);
+    btn.setAttribute("aria-selected",String(active));
+    btn.tabIndex=active?0:-1;
+  });
+  drag=null; phDrag=false; jogRects=null; jogHover=null;
+  updateButtons();
+  draw();
+}
+document.querySelectorAll(".graph-tab").forEach(btn=>{
+  btn.addEventListener("click",()=>setViewMode(btn.dataset.view));
+});
+
 function updateButtons(){
   const mb=$("mainBtn");
   if(state.stage==="flt"){ mb.textContent="EDIT"; mb.classList.add("edit"); }
   else { mb.textContent="SMOOTH"; mb.classList.remove("edit"); }
-  const names={raw:"RAW MP", flt:"FLT MP", edit:"재편집 (직선)"};
-  $("stageTag").textContent = names[state.stage];
   const hints={
-    raw:"RAW MP: 포인트를 마우스·터치로 드래그해 경로를 편집하세요.",
+    raw:"ENC RAW: 고밀도 캡처 경로입니다. 포인트 수를 줄인 뒤 마우스·터치로 편집하세요.",
     flt:"FLT MP: 칼만 + S-Curve 추종 모델로 정형된 곡선입니다. EDIT으로 재편집.",
-    edit:"재편집: 직선 구간의 포인트를 드래그한 뒤 SMOOTH로 다시 다듬으세요."
+    edit:"재편집: 포인트를 드래그하면 연속 가속 모션곡선이 즉시 갱신됩니다."
   };
-  $("hint").textContent = hints[state.stage];
+  $("hint").textContent = state.viewMode==="speed"
+    ? (state.stage==="raw"
+      ? "RAW 속도 · 읽기 전용(가는 선): 위치곡선 미분에 초경량 평활을 적용한 RAW 속도(°/s)입니다 — 위치 추세 추종."
+      : (state.stage==="edit"
+        ? "EDIT 속도 · 읽기 전용(가는 선): 편집 위치곡선 미분에 초경량 평활을 적용한 속도(°/s)입니다 — 위치 추세 추종."
+        : "FLT 속도 · 읽기 전용(굵은 선): S-Curve 완화가 적용된 연속 속도 램프(°/s)입니다."))
+    : hints[state.stage];
   // SUPER SMOOTH 스위치는 재편집(EDIT) 단계에서만 활성화
   const ss=$("superSmooth"), ssDis = state.stage!=="edit";
   ss.classList.toggle("disabled", ssDis);
@@ -1101,9 +1746,11 @@ function updateButtons(){
 
 $("mainBtn").addEventListener("click", ()=>{
   if(state.stage==="flt"){
-    // EDIT: 곡선 → 직선(필터된 포인트를 편집셋으로)
-    AXIS_NAMES.forEach(n=> axes[n].points = axes[n].filtered.map(p=>({t:p.t,deg:p.deg})));
+    // EDIT: 현재 화면의 정규화 실행곡선을 편집 포인트 수에 맞춰 워킹셋으로 전환
+    rebuildMotionProfiles();
+    AXIS_NAMES.forEach(n=> axes[n].points=workingPointsFromCapture(motionProfiles[n].position,axes[n].pointCount));
     state.stage="edit";
+    AXIS_NAMES.forEach(n=>setAxisResampleSource(n,axes[n].points,"edit"));
     if(typeof resetPlay==="function") resetPlay();
   } else {
     // SMOOTH
@@ -1161,9 +1808,12 @@ function loadPreset(i){
   stopPlay();
   AXIS_NAMES.forEach(n=>{
     const src=p[n] || constantPath(0);
+    axes[n].pointCount=clampPointCount(src.length);
     axes[n].filtered=src.map(q=>({...q}));
     axes[n].points=src.map(q=>({...q}));
     axes[n].raw=src.map(q=>({...q}));
+    setAxisResampleSource(n,src,"flt");
+    updatePointCountUI(n);
   });
   state.stage="flt";
   // 핀이 켜져 있으면 불러온 프리셋의 끝점으로 재설정(이전 경로의 IN/OUT을 덮어쓰지 않음)
@@ -1172,6 +1822,7 @@ function loadPreset(i){
   state.dirty = false;
   undoStack=[]; redoStack=[]; updateUndoRedo();
   resetMoveUI();
+  resetTimeZoom(false);
   const [a]=pathRange(); play.t=a; motor.t=a; play.synced=false; resetPlayUI();
   renderPresets();
   updateButtons(); draw();
@@ -1266,7 +1917,7 @@ $("superSmooth").addEventListener("click", function(){
 // 메뉴 호버 토스트 팁
 function hoverTip(id,msg){ const el=$(id); if(el) el.addEventListener("mouseenter", ()=>toast(msg)); }
 hoverTip("easeGroup","영역 %는 선택된 경로의 시작/끝 포인트 구간 기준. '선택 영역 완화' ON 시 해당 구간을 전체 S-Curve 모델로 추가 완화합니다.");
-hoverTip("smoothOptGroup","SUPER SMOOTH: 재편집 단계에서 체크 후 SMOOTH 시 칼만 무시·완전 S-Curve로 변환. AI: 현재 ON/OFF 동작만(ML 학습값 미적용).");
+hoverTip("smoothOptGroup","Kalman은 측정 노이즈 제거 비율, S-Curve는 이상적 가속-정속-감속 프로필 추종 비율입니다. Kalman 0% + S-Curve 100%에서 이상적 프로필을 생성합니다.");
 $("easeBtn").addEventListener("click", function(){
   this.blur();
   state.ease=!state.ease;
@@ -1278,6 +1929,7 @@ $("easeBtn").addEventListener("click", function(){
 
 // 슬라이더 / 입력
 $("fltStrength").addEventListener("input", e=>{ state.fltStrength=+e.target.value; $("fltStrengthVal").textContent=e.target.value+"%"; markDirty(); if(state.stage==="flt"){computeFiltered();draw();} });
+$("sCurveStrength").addEventListener("input", e=>{ state.sCurveStrength=+e.target.value; $("sCurveStrengthVal").textContent=e.target.value+"%"; markDirty(); if(state.stage==="flt"){computeFiltered();draw();} });
 $("gridScaleX").addEventListener("input", e=>{ state.gridScaleX=+e.target.value; $("gridScaleXVal").textContent=(+e.target.value).toFixed(1)+"x"; draw(); });
 $("gridScaleY").addEventListener("input", e=>{ state.gridScaleY=+e.target.value; $("gridScaleYVal").textContent=(+e.target.value).toFixed(1)+"x"; draw(); });
 $("snap").addEventListener("change", e=> state.snap=e.target.checked);
@@ -1324,6 +1976,7 @@ function clampMoveDelta(names, mode, delta){
 function applyMove(names, mode, delta){
   names.forEach(name=>{
     axes[name].points.forEach(p=>{ if(mode==="x") p.t+=delta; else p.deg+=delta; });
+    axes[name].resampleDirty=true;
   });
 }
 function bindMove(id, mode, key, isX){
@@ -1367,7 +2020,7 @@ $("delBtn").addEventListener("click", function(){
 function applyRegionEaseStep(){
   AXIS_NAMES.filter(n=>state.easeAxes[n]).forEach(name=>{
     const pts = axes[name].points;
-    if(pts.length>=3) sCurveRegion(pts, 0.4);
+    if(pts.length>=3){ sCurveRegion(pts, 0.4); axes[name].resampleDirty=true; }
   });
 }
 $("easeRunBtn").addEventListener("click", ()=>{
@@ -1380,69 +2033,89 @@ $("easeRunBtn").addEventListener("click", ()=>{
 });
 $("startPct").addEventListener("input", e=>{ state.startPct=+e.target.value; $("startPctVal").textContent=e.target.value+"%"; markDirty(); if(state.stage==="flt")computeFiltered(); draw(); });
 $("endPct").addEventListener("input", e=>{ state.endPct=+e.target.value; $("endPctVal").textContent=e.target.value+"%"; markDirty(); if(state.stage==="flt")computeFiltered(); draw(); });
-function clampDensity(v){ return Math.max(0.2, Math.min(1, +v||0.4)); }
-function bindDensity(id, name){
-  const el=$(id), val=$(id+"Val");
-  function sync(){
-    const v=clampDensity(el.value);
-    axes[name].density=v;
-    el.value=v.toFixed(1);
-    if(val) val.textContent=v.toFixed(1)+"/s";
+function clampPointCount(v){
+  const n=Math.round((+v||EDIT_POINT_MIN)/2)*2;
+  return Math.max(EDIT_POINT_MIN,Math.min(EDIT_POINT_MAX,n));
+}
+function updatePointCountUI(name){
+  const out=$(name+"PointCount");
+  if(out) out.textContent=String(axes[name].pointCount);
+  const slider=$(name+"PointSlider");
+  if(slider) slider.value=String(axes[name].pointCount);
+  const control=document.querySelector('.point-count-control[data-axis="'+name+'"]');
+  control?.querySelectorAll(".stepbtn").forEach(btn=>{
+    const step=+btn.dataset.step||0;
+    btn.disabled=(step<0&&axes[name].pointCount<=EDIT_POINT_MIN)||(step>0&&axes[name].pointCount>=EDIT_POINT_MAX);
+  });
+}
+
+// 축별 고해상도 기준 경로에서 직접 재샘플링한다.
+// 포인트 편집 후에는 편집곡선을 새 기준으로 승격하므로 이후 증감에서도 사용자 수정이 유지된다.
+function resampleAxis(name,count){
+  const a=axes[name];
+  if(a.resampleDirty||a.resampleStage!==state.stage||a.resampleSource.length<2){
+    setAxisResampleSource(name,curPts(name),state.stage);
   }
-  el.addEventListener("input", sync);
-  el.addEventListener("change", sync);
-  sync();
+  const src=normalizedMotionPoints(a.resampleSource);
+  if(src.length<2) return;
+  const n=clampPointCount(count??a.pointCount);
+  const curve=buildMotionProfile(src,36).position;
+  const t0=src[0].t,t1=src[src.length-1].t,out=[];
+  for(let i=0;i<n;i++){
+    const t=t0+(t1-t0)*i/(n-1);
+    out.push({t,deg:degAt(curve,t)});
+  }
+  out[0]={t:src[0].t,deg:src[0].deg};
+  out[n-1]={t:src[src.length-1].t,deg:src[src.length-1].deg};
+  a.pointCount=n;
+  a.points=out;
+  updatePointCountUI(name);
 }
-bindDensity("panDensity","pan");
-bindDensity("tiltDensity","tilt");
-bindDensity("zoomDensity","zoom");
-bindDensity("focusDensity","focus");
-document.querySelectorAll(".density-stepper .stepbtn").forEach(btn=>{
-  btn.addEventListener("click", ()=>{
+
+document.querySelectorAll(".point-count-control .stepbtn").forEach(btn=>{
+  btn.addEventListener("click",()=>{
     btn.blur();
-    const targetId = btn.closest(".density-stepper")?.dataset.target;
-    const el = targetId ? $(targetId) : null;
-    if(!el) return;
-    const step = +btn.dataset.step || 0;
-    const next = clampDensity(Math.round((+el.value + step) * 10) / 10);
-    el.value = next.toFixed(1);
-    el.dispatchEvent(new Event("input", { bubbles:true }));
+    const name=btn.closest(".point-count-control")?.dataset.axis;
+    if(!name||!axes[name]) return;
+    const next=clampPointCount(axes[name].pointCount+(+btn.dataset.step||0));
+    if(next===axes[name].pointCount) return;
+    const before=snapshot();
+    resampleAxis(name,next);
+    pushHistory(before); markDirty();
+    if(state.stage==="flt") computeFiltered();
+    draw();
+    toast(AXIS_LABEL[name]+" 총 "+next+" 포인트 — 현재 편집기준 경로 추종");
   });
 });
+const pointSliderHistory=new Map();
+document.querySelectorAll(".point-count-slider").forEach(slider=>{
+  const name=slider.closest(".point-count-control")?.dataset.axis;
+  if(!name||!axes[name]) return;
+  slider.addEventListener("pointerdown",()=>{
+    pointSliderHistory.set(name,{before:snapshot(),count:axes[name].pointCount});
+  });
+  slider.addEventListener("input",e=>{
+    if(!pointSliderHistory.has(name)) pointSliderHistory.set(name,{before:snapshot(),count:axes[name].pointCount});
+    const next=clampPointCount(e.target.value);
+    if(next===axes[name].pointCount) return;
+    resampleAxis(name,next);
+    markDirty();
+    if(state.stage==="flt") computeFiltered();
+    draw();
+  });
+  slider.addEventListener("change",()=>{
+    const h=pointSliderHistory.get(name);
+    pointSliderHistory.delete(name);
+    if(!h||h.count===axes[name].pointCount) return;
+    pushHistory(h.before);
+    toast(AXIS_LABEL[name]+" 총 "+axes[name].pointCount+" 포인트 — 현재 편집기준 경로 추종");
+  });
+});
+AXIS_NAMES.forEach(updatePointCountUI);
 $("csvFps").addEventListener("input", e=>{ $("csvFpsVal").textContent=csvFps()+"fps"; });
-// 포인트 재생성: 현재 경로 형상(폴리라인)을 유지한 채 지정 밀도로 리샘플
-function resamplePoints(){
-  AXIS_NAMES.forEach(name=>{
-    const a=axes[name], pts=a.points;
-    if(pts.length<2) return;
-    const t0=pts[0].t, t1=pts[pts.length-1].t;
-    const dens=Math.max(0.2, Math.min(1, a.density));
-    const n=Math.max(2, Math.round(dens*(t1-t0)/1000)+1);
-    const out=[];
-    for(let i=0;i<n;i++){ const t=t0+(t1-t0)*i/(n-1); out.push({t, deg: degAt(pts, t)}); }
-    out[0]={t:pts[0].t, deg:pts[0].deg};                       // 끝점 정확히 유지
-    out[n-1]={t:pts[pts.length-1].t, deg:pts[pts.length-1].deg};
-    a.points=out;
-  });
-}
-$("resampleBtn").addEventListener("click", ()=>{
-  const before=snapshot();
-  resamplePoints();
-  if(state.pinEnds) enforcePinsPoints();
-  pushHistory(before); markDirty();
-  if(state.stage==="flt") computeFiltered();
-  draw();
-  toast("포인트 재생성 — 형상 유지, 밀도 적용");
-});
 $("regenBtn").addEventListener("click", ()=>{
-  resetScaleUI();
-  undoStack=[]; redoStack=[]; updateUndoRedo();
-  resetMoveUI();
-  state.loadedPreset=-1; markDirty();
   regenAll();
-  if(state.pinEnds){ capturePins(); }   // 재생성된 경로의 끝점을 새 IN/OUT으로 고정
-  const [a]=pathRange(); play.t=a; motor.t=a; play.synced=false; play.dir=1; play.on=false; resetPlayUI();
-  renderPresets(); toast("RAW MP 재생성");
+  toast("RAWPT · 최대 포인트 엔코더 입력 모사");
 });
 
 // ---------- CSV 입출력 ----------
@@ -1450,15 +2123,22 @@ $("regenBtn").addEventListener("click", ()=>{
 function pathFinal(name){ const a=axes[name]; return a.filtered.length ? a.filtered : a.points; }
 function finalPathSet(){ return Object.fromEntries(AXIS_NAMES.map(n=>[n,pathFinal(n)])); }
 function csvFps(){ return Math.max(1, Math.min(120, Math.round(+$("csvFps").value)||30)); }
-function buildCsv(paths, fps){
+function buildCsv(paths, fps, profileMode){
   if(!AXIS_NAMES.some(n=>(paths[n]?.length||0)>=2)) return null;
   const t0=Math.min(...AXIS_NAMES.map(n=>paths[n]?.[0]?.t ?? T_MAX));
   const t1=Math.max(...AXIS_NAMES.map(n=>paths[n]?.[paths[n].length-1]?.t ?? 0));
   const dur=Math.max(0,t1-t0), nFrames=Math.max(1,Math.ceil(dur/1000*fps));
+  const profiles=Object.fromEntries(AXIS_NAMES.map(n=>{
+    const pts=paths[n]||constantPath(0);
+    const profile=profileMode==="ideal"?buildIdealMotionProfile(pts,36)
+      :profileMode==="regularized"?buildRegularizedMotionProfile(pts)
+      :buildMotionProfile(pts,36);
+    return [n,profile.position];
+  }));
   let csv="frame,time_s,pan_deg,tilt_deg,zoom_deg,focus_deg\n";
   for(let f=0;f<=nFrames;f++){
     const t=f===nFrames?t1:Math.min(t1,t0+(f/fps)*1000);
-    const values=AXIS_NAMES.map(n=>degAt(paths[n]||[],t).toFixed(4));
+    const values=AXIS_NAMES.map(n=>degAt(profiles[n],t).toFixed(4));
     csv += [f,((t-t0)/1000).toFixed(4),...values].join(",")+"\n";
   }
   return {csv,frames:nFrames+1};
@@ -1473,7 +2153,8 @@ function downloadCsv(filename, csv){
 }
 function csvExport(){
   const fps=csvFps();
-  const r=buildCsv(finalPathSet(),fps);
+  const profileMode=state.stage==="flt"?(state.superSmooth||state.sCurveStrength>=99.999?"ideal":"regularized"):"base";
+  const r=buildCsv(finalPathSet(),fps,profileMode);
   if(!r){ toast("내보낼 경로가 없습니다"); return; }
   downloadCsv("cinehead_4axis_path_"+fps+"fps.csv",r.csv);
   toast("4축 CSV 내보내기 ("+r.frames+"프레임 @ "+fps+"fps)");
@@ -1490,30 +2171,6 @@ function exportAllPresets(){
     if(r) downloadCsv("cinehead_4axis_preset"+(i+1)+"_"+fps+"fps.csv",r.csv);
   }, k*350));   // 순차 다운로드(브라우저 다중 다운로드)
   toast(idxs.length+"개 프리셋 개별 CSV 내보내기 @ "+fps+"fps");
-}
-// 형태보존 단순화(RDP, 값축 오차 기준) — 조밀한 프레임 데이터를 쉐잎 유지하며 감축
-function simplifyValue(pts, eps){
-  const n=pts.length; if(n<3) return pts.slice();
-  const keep=new Array(n).fill(false); keep[0]=keep[n-1]=true;
-  const stack=[[0,n-1]];
-  while(stack.length){
-    const [a,b]=stack.pop(); if(b<=a+1) continue;
-    const ta=pts[a].t, da=pts[a].deg, span=(pts[b].t-ta)||1, dd=pts[b].deg-da;
-    let maxE=-1, idx=-1;
-    for(let i=a+1;i<b;i++){
-      const pred=da + dd*((pts[i].t-ta)/span);   // 같은 시간에서의 직선 보간값
-      const e=Math.abs(pts[i].deg-pred);
-      if(e>maxE){ maxE=e; idx=i; }
-    }
-    if(maxE>eps){ keep[idx]=true; stack.push([a,idx]); stack.push([idx,b]); }
-  }
-  const out=[]; for(let i=0;i<n;i++) if(keep[i]) out.push({t:pts[i].t, deg:pts[i].deg});
-  return out;
-}
-function simplifyCapped(pts, maxN){
-  let eps=0.2, out=simplifyValue(pts,eps), guard=0;
-  while(out.length>maxN && guard++<40){ eps*=1.5; out=simplifyValue(pts,eps); }
-  return out;
 }
 // 가져오기: v2 4축과 기존 v1 2축 CSV를 모두 허용. 누락 축은 0° 상수 경로로 생성.
 function csvImport(text){
@@ -1553,22 +2210,21 @@ function csvImport(text){
   }
   const ordered=[...new Map(rows.sort((a,b)=>a.t-b.t).map(r=>[r.t,r])).values()];
   if(ordered.length<2){toast("CSV 파싱 실패 (유효한 시간 행 2개 이상 필요)");return;}
-  const MAXN=80,rawCount=ordered.length,reduced={};
-  AXIS_NAMES.forEach(n=>{
-    reduced[n]=simplifyCapped(ordered.map(r=>({t:r.t,deg:r[n]})),MAXN);
-    axes[n].points=reduced[n];axes[n].raw=reduced[n].map(q=>({...q}));axes[n].filtered=[];
-  });
-  state.stage="raw";resetScaleUI();
+  const rawCount=ordered.length;
+  const rawByAxis=Object.fromEntries(AXIS_NAMES.map(n=>[n,ordered.map(r=>({t:r.t,deg:r[n]}))]));
+  ingestRawCapture(rawByAxis,{source:"csv"});
+  resetTimeZoom(false);
+  resetScaleUI();
   undoStack=[];redoStack=[];updateUndoRedo();resetMoveUI();
   state.loadedPreset=-1;markDirty();
   const [a]=pathRange();play.t=a;motor.t=a;play.synced=false;play.dir=1;play.on=false;
   updateButtons();renderPresets();resetPlayUI();draw();
-  toast("4축 CSV 가져오기: "+rawCount+"→최대 "+Math.max(...AXIS_NAMES.map(n=>reduced[n].length))+"포인트 — RAW 로드");
+  toast("4축 CSV RAW "+rawCount+"개 보존 · 편집 워킹셋 "+EDIT_POINT_MAX+"포인트");
 }
 $("csvExportBtn").addEventListener("click", csvExport);
 $("csvPresetExportBtn").addEventListener("click", exportAllPresets);
 $("csvImportBtn").addEventListener("click", ()=> $("csvFile").click());
-hoverTip("csvGroup","내보내기: 현재 경로를 프레임별 CSV로. 일괄: 저장된 프리셋을 각각 개별 파일로. 가져오기: 외부 CSV를 쉐잎 유지하며 편집 가능한 포인트로 자동 단순화(RDP) 로드.");
+hoverTip("csvGroup","내보내기: 현재 실행 프로필을 프레임별 CSV로. 가져오기: 외부 CSV 전체를 RAW 캡처로 보존하고 편집 워킹셋만 최대 포인트 수로 리샘플링합니다.");
 $("csvFile").addEventListener("change", e=>{
   const f=e.target.files[0]; if(!f) return;
   const rd=new FileReader();
@@ -1589,8 +2245,12 @@ function resetPlayUI(){
 }
 // 재생/모터싱크는 FLT 또는 EDIT 모드에서 가능 (RAW만 차단)
 function syncable(){ return state.stage==="flt" || state.stage==="edit"; }
+function refreshSyncState(){
+  if(Math.abs(play.t-motor.t) < 1) play.synced = true;
+}
 function playEnabled(){ return syncable() && play.synced; }
 function updatePlayBtn(){
+  refreshSyncState();
   const fwd=$("playBtn"), rev=$("revBtn"), dis=!playEnabled();
   const [a,b]=pathRange();
   const atStart = play.t <= a+1, atEnd = play.t >= b-1;
@@ -1636,6 +2296,7 @@ function pausePlay(){
 function resetPlay(){           // 정지(처음으로). 모터 실제 위치는 유지.
   play.on=false; if(play.raf) cancelAnimationFrame(play.raf);
   const [a]=pathRange(); play.t=a; play.dir=1;
+  ensureTimeVisible(play.t);
   play.synced = Math.abs(play.t-motor.t) < 1;   // 모터와 어긋나면 미동기 → 재생 불가
   updatePlayBtn(); resetPlayUI(); draw();
 }
@@ -1648,9 +2309,11 @@ function tick(ts){
   // 완료 시 방향은 그대로 둠(완료 후 버튼이 역재생으로 바뀌지 않도록)
   if(play.t>=b){ play.t=b; if(play.cycle) play.dir=-1; else stop=true; }
   else if(play.t<=a){ play.t=a; if(play.cycle) play.dir=1; else stop=true; }
+  ensureTimeVisible(play.t);
   motor.t = play.t;             // 모터가 플레이헤드를 실시간 추종
-  if(stop){ play.on=false; updatePlayBtn(); resetPlayUI(); draw(); return; }
-  resetPlayUI(); draw();
+  play.synced = true;
+  if(stop){ play.on=false; updatePlayBtn(); resetPlayUI(); draw(true); return; }
+  resetPlayUI(); draw(true);    // 재생 중에는 프로필 고정 → 재계산 생략
   if(play.on) play.raf=requestAnimationFrame(tick);
 }
 // 모터싱크: 모터를 플레이바 위치로 복귀(애니메이션)
@@ -1661,9 +2324,9 @@ function animateMotorTo(target, done){
   function step(ts){
     const u=Math.min(1,(ts-t0)/dur);
     motor.t = start + (target-start)*smootherstep(u);
-    draw();
+    draw(true);                 // 모터 바만 이동 → 프로필 재계산 생략
     if(u<1) motorAnim=requestAnimationFrame(step);
-    else { motor.t=target; motorAnim=null; draw(); if(done) done(); }
+    else { motor.t=target; motorAnim=null; draw(true); if(done) done(); }
   }
   motorAnim=requestAnimationFrame(step);
 }
@@ -1686,12 +2349,14 @@ $("ptrack").addEventListener("click", e=>{
   const r=$("ptrack").getBoundingClientRect();
   const f=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));
   const [a,b]=pathRange(); play.t=a+f*(b-a);
+  ensureTimeVisible(play.t);
   play.synced = Math.abs(play.t-motor.t) < 1;   // 모터와 어긋나면 미동기
   updatePlayBtn(); resetPlayUI(); draw();
 });
 
 // ---------- 초기화 ----------
-AXIS_NAMES.forEach(regenAxis);
+initMotorDials();
+ingestRawCapture(simulateEncoderCapture(),{source:"simulator"});
 { const [a]=pathRange(); play.t=a; motor.t=a; play.synced=false; }
 restorePersistedPresets();
 renderPresets();
@@ -1699,6 +2364,8 @@ updateUndoRedo();
 updateButtons();
 updatePinUI();
 jogLabel();
+updateTimeZoomUI();
+updateYRangeUI();
 resize();
 resetPlayUI();
 </script>
