@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "model": "assets/CineHead4Axis.glb",
+  "axes": {
+    "pan": {
+      "node": "PT1",
+      "mode": "rotate",
+      "axis": "y",
+      "sign": 1,
+      "unit": "deg"
+    },
+    "tilt": {
+      "node": "Tilt1",
+      "mode": "rotate",
+      "axis": "x",
+      "sign": 1,
+      "unit": "deg",
+      "pivot": [
+        0,
+        0.2052,
+        0
+      ]
+    },
+    "zoom": {
+      "node": "FocusGear_R1",
+      "targets": [
+        "GearZ_1",
+        "IndexP_a_1"
+      ],
+      "mode": "rotate",
+      "axis": "z",
+      "sign": 1,
+      "unit": "norm"
+    },
+    "focus": {
+      "node": "FocusGear_L1",
+      "targets": [
+        "GearZ",
+        "IndexP_a"
+      ],
+      "mode": "rotate",
+      "axis": "z",
+      "sign": 1,
+      "unit": "norm"
+    }
+  }
+}
