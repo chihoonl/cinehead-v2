@@ -187,6 +187,16 @@
     border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
   }
   .menu-split:hover .vsplit-grip { background: var(--accent); }
+  /* 우측 메뉴 가로폭 분할선 (mv3.3) — 중앙 영역 ↔ 메뉴바 폭 조절 */
+  aside { width: var(--aside-w, 308px); }
+  .hsplit {
+    flex: none; width: 11px; cursor: col-resize; touch-action: none;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(90deg,#0c121a,#0a0e13);
+    border-left: 1px solid var(--line); border-right: 1px solid var(--line);
+  }
+  .hsplit:hover .hsplit-grip { background: var(--accent); }
+  .hsplit-grip { width: 4px; height: 48px; border-radius: 3px; background: #34465a; transition: background .15s; }
   .aside-top .group { margin-bottom: 10px; }
   .aside-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 12px; }
   .aside-scroll::-webkit-scrollbar { width: 9px; }
@@ -389,6 +399,7 @@
     aside { width:100%; border-left:0; border-top:1px solid var(--line); overflow:visible; order:3; }
     .aside-scroll { overflow:visible; padding:10px; }
     .menu-split { display:none; }
+    .hsplit { display:none; }
     .aside-top, .aside-scroll { flex:none !important; overflow:visible; }
     .aside-top { padding-bottom:8px; }
     .playbar { left:8px; right:8px; gap:6px; flex-wrap:wrap; }
@@ -589,7 +600,7 @@
   header { padding-left:50px; padding-right:50px; }
   main { position: relative; }
   .frame.panel-lowered .center-col { flex: 1 1 100%; }
-  .frame.panel-lowered .twin-wrap { width: calc(100% - 308px); align-self: flex-start; }
+  .frame.panel-lowered .twin-wrap { width: calc(100% - var(--aside-w, 308px)); align-self: flex-start; }
   .frame.panel-lowered #controlPanel {
     position: absolute; z-index: 18; right: 0; top: var(--panel-lower-top, 50%); bottom: 0; height: auto;
     box-shadow: -10px 0 28px rgba(0,0,0,.32); border-top: 1px solid var(--line);
@@ -721,6 +732,10 @@
       </div>
       <div class="twin-axis-gauges" id="twinAxisGauges" aria-label="디지털 트윈 4축 실시간 회전 게이지"></div>
     </div>
+  </div>
+
+  <div class="hsplit" id="menuWidthSplit" role="separator" aria-orientation="vertical" title="우측 메뉴 가로폭 조절">
+    <span class="hsplit-grip"></span>
   </div>
 
   <aside id="controlPanel">
@@ -3395,6 +3410,33 @@ window.addEventListener("resize",updateLoweredPanelTop);
   window.addEventListener("mouseup", end);
   window.addEventListener("touchend", end);
   setRatio(0.4);   // 고정(미리보기·완화·승인 + 밀도 + 편집 이력) 기본 40%
+})();
+
+// ---------- 우측 메뉴 가로폭 분할선 드래그 (mv3.3) ----------
+// --aside-w CSS 변수 하나로 aside 폭과 panel-lowered 트윈 폭을 동시 제어한다.
+(function setupMenuWidthSplit(){
+  const split=$("menuWidthSplit"), frame=document.querySelector(".frame"), mainEl=document.querySelector("main");
+  if(!split||!frame||!mainEl) return;
+  let dragging=false;
+  function setW(w){
+    const max=Math.min(560, mainEl.getBoundingClientRect().width-480);   // 중앙 편집 영역 최소 480px 확보
+    w=Math.max(240, Math.min(max, w));
+    frame.style.setProperty("--aside-w", Math.round(w)+"px");
+    resize();   // 캔버스 폭 갱신
+  }
+  function onMove(e){
+    if(!dragging) return;
+    const x=(e.touches?e.touches[0].clientX:e.clientX);
+    setW(mainEl.getBoundingClientRect().right - x - 5);
+    if(e.cancelable) e.preventDefault();
+  }
+  function end(){ if(dragging){ dragging=false; document.body.style.cursor=""; } }
+  split.addEventListener("mousedown", e=>{ dragging=true; document.body.style.cursor="col-resize"; e.preventDefault(); });
+  split.addEventListener("touchstart", ()=>{ dragging=true; }, {passive:true});
+  window.addEventListener("mousemove", onMove);
+  window.addEventListener("touchmove", onMove, {passive:false});
+  window.addEventListener("mouseup", end);
+  window.addEventListener("touchend", end);
 })();
 
 // ---------- 초기화 ----------
