@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Robotic Head · SIM v3.3</title>
+<title>Robotic Head · SIM mv3.3</title>
 <script type="importmap">
 {
   "imports": {
@@ -64,14 +64,7 @@
     background: linear-gradient(180deg,#141c26,#0d141c);
     border-bottom: 1px solid var(--line);
   }
-  header h1 { font-size: 15px; margin: 0; letter-spacing: .3px; font-weight: 600; }
-  /* Robotic Head 로고 — 테마색 라운드 솔리드 박스 (패딩 축소·텍스트 확대) */
-  h1.logo-box {
-    background: var(--accent); color: #041420;
-    padding: 3px 9px; border-radius: 9px;
-    font-size: 17px; font-weight: 800; letter-spacing: .3px;
-    box-shadow: 0 2px 10px rgba(56,189,248,.35);
-  }
+  /* mv3.3: 로고 삭제 — 가로 태블릿 헤더 공간 확보 */
   header .sub { color: var(--text-dim); font-size: 12px; }
   header .badge {
     margin-left: auto; font-size: 11px; color: var(--text-dim);
@@ -183,7 +176,17 @@
   .motor-card.tilt { color: var(--tilt); }
   .motor-card.zoom { color: var(--zoom); }
   .motor-card.focus { color: var(--focus); }
-  .aside-top { flex: none; padding: 12px 12px 2px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  .aside-top { flex: 0.4 1 0; min-height: 0; overflow-y: auto; padding: 12px 12px 2px; background: var(--panel); }
+  .aside-top::-webkit-scrollbar { width: 9px; }
+  .aside-top::-webkit-scrollbar-thumb { background: #263344; border-radius: 8px; }
+  /* 우측 메뉴 분할선(고정/스크롤 비율 조절) — 저작/트윈 vsplit과 동일 패턴 */
+  .menu-split {
+    flex: none; height: 11px; cursor: row-resize; touch-action: none;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(180deg,#101823,#0d141c);
+    border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  }
+  .menu-split:hover .vsplit-grip { background: var(--accent); }
   .aside-top .group { margin-bottom: 10px; }
   .aside-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 12px; }
   .aside-scroll::-webkit-scrollbar { width: 9px; }
@@ -385,6 +388,8 @@
     .motor-dial { max-width:220px; }
     aside { width:100%; border-left:0; border-top:1px solid var(--line); overflow:visible; order:3; }
     .aside-scroll { overflow:visible; padding:10px; }
+    .menu-split { display:none; }
+    .aside-top, .aside-scroll { flex:none !important; overflow:visible; }
     .aside-top { padding-bottom:8px; }
     .playbar { left:8px; right:8px; gap:6px; flex-wrap:wrap; }
     .ptrack { min-width:120px; }
@@ -592,6 +597,18 @@
   header { padding-right: 92px; }
   .frame.header-collapsed header { display: none; }
 
+  /* 가로 태블릿(iPad Pro 11 논리 높이 834px 등): 메뉴 수직 밀도 압축 */
+  @media (max-height: 900px) {
+    header { padding-top: 6px; padding-bottom: 6px; }
+    .group { padding: 9px 10px; margin-bottom: 9px; }
+    .group h3 { margin: 0 0 8px; padding: 0 0 6px; font-size: 13px; }
+    .row { margin: 7px 0; }
+    .aside-top { padding: 9px 10px 2px; }
+    .aside-scroll { padding: 9px 10px; }
+    .rt-head { padding: 8px 10px 2px; }
+    .panel-tabs { margin-bottom: 8px; }
+  }
+
   @media (max-width: 1180px) { .hlegend { display: none; } }
   @media (max-width: 900px) {
     .panel-toggle { display: none; }
@@ -613,7 +630,6 @@
   <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 6l4.5 4.5L12.5 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
 </button>
 <header>
-  <h1 class="logo-box">Robotic Head</h1>
   <span class="hlegend">
     <span><i style="background:var(--pan)"></i>Pan</span>
     <span><i style="background:var(--tilt)"></i>Tilt</span>
@@ -732,19 +748,6 @@
           <button class="tbtn" id="resetBtn" title="RAW 리맵핑 — CP·완화 옵션 포함 완전 초기화 후 목표 밀도로 재생성 (RAW/편집)">초기화</button>
         </div>
       </div>
-      <div class="group" id="smoothOptGroup">
-        <h3>완화 옵션</h3>
-        <div class="row"><label>SUPER SMOOTH</label>
-          <button class="sw" id="superSmooth" title="완전 저크리밋 렌더링 — 현재 Kalman·S-Curve 혼합값을 반영한 채 속도곡선을 엣지 없이 완만하게. 편집 재진입으로 베이크되면 자동 해제"></button></div>
-        <div class="row"><label>AI 모드</label>
-          <button class="sw" id="aiBtn" title="현재 ON/OFF 동작만 (ML 학습값 미적용)"></button></div>
-        <div class="row density-row" title="의도 보존 ↔ 부드러움: 낮을수록 손동작 의도 보존, 높을수록 떨림 제거">
-          <label>Kalman 강도</label>
-          <span class="point-count-control strength-control" data-strength="flt"><input class="point-count-slider" id="fltStrength" type="range" min="0" max="100" step="1" value="0" aria-label="Kalman 강도" /><button class="tbtn stepbtn" data-step="-1" aria-label="Kalman 1% 감소">−</button><output class="point-count-value" id="fltStrengthVal">0%</output><button class="tbtn stepbtn" data-step="1" aria-label="Kalman 1% 증가">+</button></span></div>
-        <div class="row density-row" title="의도 보존 ↔ 부드러움: 낮을수록 편집 형태 유지, 높을수록 이상적 가감속 프로필 추종">
-          <label>S-Curve 추종</label>
-          <span class="point-count-control strength-control" data-strength="scv"><input class="point-count-slider" id="sCurveStrength" type="range" min="0" max="100" step="1" value="35" aria-label="S-Curve 추종" /><button class="tbtn stepbtn" data-step="-1" aria-label="S-Curve 1% 감소">−</button><output class="point-count-value" id="sCurveStrengthVal">35%</output><button class="tbtn stepbtn" data-step="1" aria-label="S-Curve 1% 증가">+</button></span></div>
-      </div>
       <div class="group">
         <h3>편집 이력</h3>
         <div class="mini">
@@ -754,7 +757,23 @@
       </div>
     </div>
 
+    <div class="menu-split" id="menuSplit" role="separator" aria-orientation="horizontal" title="고정 메뉴 / 스크롤 메뉴 비율 조절">
+      <span class="vsplit-grip"></span>
+    </div>
     <div class="aside-scroll">
+    <div class="group" id="smoothOptGroup">
+      <h3>완화 옵션</h3>
+      <div class="row"><label>SUPER SMOOTH</label>
+        <button class="sw" id="superSmooth" title="완전 저크리밋 렌더링 — 현재 Kalman·S-Curve 혼합값을 반영한 채 속도곡선을 엣지 없이 완만하게. 편집 재진입으로 베이크되면 자동 해제"></button></div>
+      <div class="row"><label>AI 모드</label>
+        <button class="sw" id="aiBtn" title="현재 ON/OFF 동작만 (ML 학습값 미적용)"></button></div>
+      <div class="row density-row" title="의도 보존 ↔ 부드러움: 낮을수록 손동작 의도 보존, 높을수록 떨림 제거">
+        <label>Kalman 강도</label>
+        <span class="point-count-control strength-control" data-strength="flt"><input class="point-count-slider" id="fltStrength" type="range" min="0" max="100" step="1" value="0" aria-label="Kalman 강도" /><button class="tbtn stepbtn" data-step="-1" aria-label="Kalman 1% 감소">−</button><output class="point-count-value" id="fltStrengthVal">0%</output><button class="tbtn stepbtn" data-step="1" aria-label="Kalman 1% 증가">+</button></span></div>
+      <div class="row density-row" title="의도 보존 ↔ 부드러움: 낮을수록 편집 형태 유지, 높을수록 이상적 가감속 프로필 추종">
+        <label>S-Curve 추종</label>
+        <span class="point-count-control strength-control" data-strength="scv"><input class="point-count-slider" id="sCurveStrength" type="range" min="0" max="100" step="1" value="35" aria-label="S-Curve 추종" /><button class="tbtn stepbtn" data-step="-1" aria-label="S-Curve 1% 감소">−</button><output class="point-count-value" id="sCurveStrengthVal">35%</output><button class="tbtn stepbtn" data-step="1" aria-label="S-Curve 1% 증가">+</button></span></div>
+    </div>
     <div class="group" id="scaleGroup">
       <h3>경로 확장</h3>
       <div class="subh">적용 축: 플레이바 PTZF 선택을 따름</div>
@@ -3346,7 +3365,36 @@ window.addEventListener("resize",updateLoweredPanelTop);
   window.addEventListener("touchmove", onMove, {passive:false});
   window.addEventListener("mouseup", end);
   window.addEventListener("touchend", end);
-  setRatio(0.39, true);   // 확대된 게이지와 여유 행간을 위해 트윈 영역을 넓게 확보
+  // 가로 태블릿(높이 ≤900px)에서는 2D 편집 영역을 절반으로 확대 — iPad Pro 11 가로(논리 834px) 대응
+  setRatio(window.innerHeight<=900?0.5:0.39, true);
+})();
+
+// ---------- 우측 메뉴 고정/스크롤 분할선 드래그 (mv3.3) ----------
+(function setupMenuSplit(){
+  const split=$("menuSplit"), body=$("panelBody");
+  const top=body?body.querySelector(".aside-top"):null, bot=body?body.querySelector(".aside-scroll"):null;
+  if(!split||!top||!bot) return;
+  let dragging=false;
+  function setRatio(r){
+    r=Math.max(0.15,Math.min(0.75,r));
+    top.style.flex=r+" 1 0";
+    bot.style.flex=(1-r)+" 1 0";
+  }
+  function onMove(e){
+    if(!dragging) return;
+    const rect=body.getBoundingClientRect();
+    const y=(e.touches?e.touches[0].clientY:e.clientY)-rect.top;
+    setRatio(y/rect.height);
+    if(e.cancelable) e.preventDefault();
+  }
+  function end(){ dragging=false; }
+  split.addEventListener("mousedown", e=>{ dragging=true; e.preventDefault(); });
+  split.addEventListener("touchstart", ()=>{ dragging=true; }, {passive:true});
+  window.addEventListener("mousemove", onMove);
+  window.addEventListener("touchmove", onMove, {passive:false});
+  window.addEventListener("mouseup", end);
+  window.addEventListener("touchend", end);
+  setRatio(0.4);   // 고정(미리보기·완화·승인 + 밀도 + 편집 이력) 기본 40%
 })();
 
 // ---------- 초기화 ----------
