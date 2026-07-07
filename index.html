@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Robotic Head · SIM mv3.3</title>
+<title>Robotic Head · SIM mv-p3.3</title>
 <script type="importmap">
 {
   "imports": {
@@ -861,6 +861,22 @@
         </span>
       </div>
       <div class="presets" id="presets"></div>
+    </div>
+
+    <div class="group" id="sessionGroup">
+      <div class="row" style="margin-top:0">
+        <h3 style="margin:0">세션 (경로+메뉴 상태)</h3>
+        <span style="display:flex;align-items:center;gap:7px">
+          <span style="font-size:12px;color:var(--text)">저장</span>
+          <button class="sw" id="sessSaveMode" title="ON: 슬롯 클릭 시 현재 세션 저장(덮어쓰기) / OFF: 슬롯 클릭 시 호출"></button>
+        </span>
+      </div>
+      <div class="presets" id="sessSlots"></div>
+      <div class="mini" style="margin-top:8px">
+        <button class="tbtn" id="sessExportBtn" title="현재 세션(경로·마커·완화·메뉴·레이아웃)을 JSON 파일로 저장">파일 내보내기</button>
+        <button class="tbtn" id="sessImportBtn" title="세션 JSON 파일을 불러와 화면 전체를 복원">파일 가져오기</button>
+      </div>
+      <input type="file" id="sessFile" accept=".json,application/json" style="display:none" />
     </div>
     </div>
     </div>
@@ -3452,6 +3468,170 @@ updateTimeZoomUI();
 updateYRangeUI();
 resize();
 resetPlayUI();
+
+// ---------- 세션 저장/불러오기 (mv-p3.3): 경로 저작 상태 + 메뉴/레이아웃 전체 스냅샷 ----------
+// 용도: 프레젠테이션용 — 미리 세팅한 경로선·완화·메뉴·분할 레이아웃을 슬롯/파일로 즉시 복원.
+function captureSession(){
+  const fr=document.querySelector(".frame");
+  const gw=$("graphWrap"), tw=$("twinWrap");
+  const fgGw=parseFloat(getComputedStyle(gw).flexGrow)||0.5, fgTw=parseFloat(getComputedStyle(tw).flexGrow)||0.5;
+  const at=document.querySelector(".aside-top"), as=document.querySelector(".aside-scroll");
+  const fgAt=parseFloat(getComputedStyle(at).flexGrow)||0.4, fgAs=parseFloat(getComputedStyle(as).flexGrow)||0.6;
+  return {
+    kind:"cinehead-session", version:1, savedAt:Date.now(),
+    axes:Object.fromEntries(AXIS_NAMES.map(n=>[n,{
+      raw:axes[n].raw.map(p=>({...p})), op:axes[n].op.map(p=>({...p})),
+      rawOp:axes[n].rawOp.map(p=>({...p})), filtered:axes[n].filtered.map(p=>({...p}))
+    }])),
+    state:{
+      stage:state.stage, density:state.density, pendingDensity:state.pendingDensity,
+      fltStrength:state.fltStrength, sCurveStrength:state.sCurveStrength, superSmooth:state.superSmooth,
+      ease:state.ease, startPct:state.startPct, endPct:state.endPct, ai:state.ai,
+      visibleAxes:{...state.visibleAxes}, hideInactive:state.hideInactive,
+      timeZoomIndex:state.timeZoomIndex, timeViewStart:state.timeViewStart, timeViewEnd:state.timeViewEnd,
+      rangeDeg:state.rangeDeg, gridOn:state.gridOn, gridScaleY:state.gridScaleY, snap:state.snap,
+      viewMode:state.viewMode, markers:state.markers.map(m=>({...m})),
+      pinEnds:state.pinEnds, pin:state.pin, match:state.match, review:state.review, pathEdited:state.pathEdited
+    },
+    frames:{ fps:frames.fps },
+    play:{ t:play.t },
+    ui:{
+      asideW:Math.round($("controlPanel").getBoundingClientRect().width)+"px",
+      vsplit:+(fgGw/(fgGw+fgTw)).toFixed(3), menuSplit:+(fgAt/(fgAt+fgAs)).toFixed(3),
+      panelLowered:fr.classList.contains("panel-lowered"),
+      headerCollapsed:fr.classList.contains("header-collapsed"),
+      twinFollow:twin.follow, twinView:twin.view
+    }
+  };
+}
+function applySession(sess){
+  if(!sess||sess.kind!=="cinehead-session"||!sess.axes) throw new Error("세션 파일 형식이 아닙니다");
+  if(play.on) pausePlay();
+  // 축 데이터
+  AXIS_NAMES.forEach(n=>{
+    const a=sess.axes[n]||{};
+    axes[n].raw=(a.raw||[]).map(p=>({...p}));
+    axes[n].op=(a.op||[]).map(p=>({...p}));
+    axes[n].rawOp=(a.rawOp||[]).map(p=>({...p}));
+    axes[n].filtered=(a.filtered||[]).map(p=>({...p}));
+  });
+  // 상태 필드
+  const st=sess.state||{};
+  ["stage","density","pendingDensity","fltStrength","sCurveStrength","superSmooth","ease","startPct","endPct","ai",
+   "hideInactive","timeZoomIndex","timeViewStart","timeViewEnd","rangeDeg","gridOn","gridScaleY","snap",
+   "pinEnds","match","review","pathEdited"].forEach(k=>{ if(st[k]!==undefined) state[k]=st[k]; });
+  state.visibleAxes=Object.assign({pan:true,tilt:true,zoom:true,focus:true}, st.visibleAxes||{});
+  state.markers=(st.markers||[]).map(m=>({...m}));
+  state.pin=st.pin||null;
+  state.markerDelete=false;
+  frames.fps=(sess.frames&&sess.frames.fps)||frames.fps; frames.dirty=true;
+  rebuildAllViews();
+  // 재생/모터 — 저장 당시 플레이헤드 위치로 동기 상태 복원
+  const [ra]=pathRange();
+  play.t=(sess.play&&Number.isFinite(sess.play.t))?sess.play.t:ra;
+  play.on=false; play.dir=1;
+  motor.t=play.t; motor.onPath=true; play.synced=true;
+  undoStack=[]; redoStack=[]; updateUndoRedo();
+  syncUiFromSession(sess.ui||{});
+  setViewMode(st.viewMode==="speed"?"speed":"position", true);
+  markDirty();
+  updateButtons(); renderPresets(); updateDensityUI(); updateSmoothUI(); updateTimeZoomUI(); updateYRangeUI();
+  resetPlayUI(); draw();
+}
+// 메뉴 위젯·레이아웃을 state와 세션 ui 값으로 동기화
+function syncUiFromSession(ui){
+  const setSw=(id,on)=>{ const el=$(id); if(el) el.classList.toggle("on",!!on); };
+  setSw("superSmooth",state.superSmooth); setSw("aiBtn",state.ai); setSw("easeBtn",state.ease);
+  setSw("matchBtn",state.match); setSw("gridBtn",state.gridOn); setSw("pinBtn",state.pinEnds);
+  setSw("reviewBtn",state.review); setSw("mrkDelBtn",false);
+  updatePinUI();
+  $("gridScaleY").value=state.gridScaleY; $("gridScaleYVal").textContent=(+state.gridScaleY).toFixed(1)+"x";
+  $("snap").checked=!!state.snap;
+  $("startPct").value=state.startPct; $("startPctVal").textContent=state.startPct+"%";
+  $("endPct").value=state.endPct; $("endPctVal").textContent=state.endPct+"%";
+  $("csvFps").value=frames.fps; $("csvFpsVal").textContent=frames.fps+"fps"; updateFpsPresetUI();
+  document.querySelectorAll(".path-axis-btn[data-path-axis]").forEach(b=>b.setAttribute("aria-pressed",String(!!state.visibleAxes[b.dataset.pathAxis])));
+  const hb=$("hideBtn"); if(hb) hb.setAttribute("aria-pressed",String(state.hideInactive));
+  // 레이아웃 분할 상태
+  const fr=document.querySelector(".frame");
+  if(ui.asideW) fr.style.setProperty("--aside-w",ui.asideW);
+  if(Number.isFinite(ui.vsplit)){ $("graphWrap").style.flex=ui.vsplit+" 1 0"; $("twinWrap").style.flex=(1-ui.vsplit)+" 1 0"; }
+  if(Number.isFinite(ui.menuSplit)){
+    const t=document.querySelector(".aside-top"), b2=document.querySelector(".aside-scroll");
+    if(t&&b2){ t.style.flex=ui.menuSplit+" 1 0"; b2.style.flex=(1-ui.menuSplit)+" 1 0"; }
+  }
+  fr.classList.toggle("panel-lowered",!!ui.panelLowered);
+  $("panelToggle").classList.toggle("on",!!ui.panelLowered);
+  $("panelToggle").setAttribute("aria-pressed",String(!!ui.panelLowered));
+  fr.classList.toggle("header-collapsed",!!ui.headerCollapsed);
+  $("headerToggle").classList.toggle("on",!!ui.headerCollapsed);
+  if(ui.twinFollow){
+    twin.follow=ui.twinFollow;
+    document.querySelectorAll(".twin-seg").forEach(b=>b.classList.toggle("active",b.dataset.follow===twin.follow));
+  }
+  if(ui.twinView){
+    twin.view=ui.twinView;
+    document.querySelectorAll(".twin-btn[data-view3d]").forEach(b=>b.classList.toggle("active",b.dataset.view3d===twin.view));
+  }
+  requestAnimationFrame(()=>{ updateLoweredPanelTop(); resize(); });
+}
+// 브라우저 슬롯 3개 (S1~S3) + 파일 입출력
+const SESS_KEY="cinehead-sessions-v1";
+let sessSlots=[null,null,null], sessSaveMode=false;
+function persistSessSlots(){
+  try{ localStorage.setItem(SESS_KEY,JSON.stringify({version:1,slots:sessSlots})); }
+  catch(e){ toast("세션 슬롯 저장 실패(브라우저 용량 초과 가능)"); }
+}
+function restoreSessSlots(){
+  try{
+    const s=JSON.parse(localStorage.getItem(SESS_KEY)||"null");
+    if(s&&Array.isArray(s.slots)) sessSlots=s.slots.slice(0,3).concat([null,null,null]).slice(0,3);
+  }catch(_){ }
+}
+function renderSessSlots(){
+  const c=$("sessSlots"); if(!c) return;
+  c.innerHTML="";
+  for(let i=0;i<3;i++){
+    const d=document.createElement("div");
+    d.className="preset"+(sessSlots[i]?" lit":"");
+    d.textContent="S"+(i+1);
+    d.style.cursor="pointer";
+    d.title=sessSlots[i]?"클릭: 세션 호출 / 저장 ON 시: 덮어쓰기":"저장 스위치 ON 후 클릭하면 현재 세션 저장";
+    d.addEventListener("click",()=>{
+      if(sessSaveMode){
+        sessSlots[i]=captureSession(); persistSessSlots(); renderSessSlots();
+        toast("세션 S"+(i+1)+" 저장 — 경로+메뉴+레이아웃");
+      } else if(sessSlots[i]){
+        try{ applySession(JSON.parse(JSON.stringify(sessSlots[i]))); toast("세션 S"+(i+1)+" 호출"); }
+        catch(err){ toast("세션 호출 오류: "+err.message); }
+      } else toast("빈 슬롯 — 저장 스위치를 켜고 클릭하면 저장됩니다");
+    });
+    c.appendChild(d);
+  }
+}
+$("sessSaveMode").addEventListener("click",function(){
+  this.blur();
+  sessSaveMode=!sessSaveMode;
+  this.classList.toggle("on",sessSaveMode);
+});
+$("sessExportBtn").addEventListener("click",()=>{
+  const blob=new Blob([JSON.stringify(captureSession())],{type:"application/json"});
+  const url=URL.createObjectURL(blob), a=document.createElement("a");
+  a.href=url;
+  a.download="cinehead_session_"+new Date().toISOString().slice(0,19).replace(/[:T]/g,"-")+".json";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1500);
+  toast("세션 파일 내보내기 — 경로+메뉴+레이아웃");
+});
+$("sessImportBtn").addEventListener("click",()=>$("sessFile").click());
+$("sessFile").addEventListener("change",e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const rd=new FileReader();
+  rd.onload=()=>{ try{ applySession(JSON.parse(String(rd.result))); toast("세션 파일 불러오기 완료"); }catch(err){ toast("세션 가져오기 오류: "+err.message); } };
+  rd.readAsText(f);
+  e.target.value="";
+});
+restoreSessSlots(); renderSessSlots();
 
 // ---------- 3D Twin(모듈 스크립트)로 상태 참조를 넘기는 브리지 ----------
 // 아래 값들은 재대입(=) 없이 항상 내부 프로퍼티만 변경되므로 참조 공유가 안전하다.
