@@ -3712,6 +3712,7 @@ function syncUiFromSession(ui){
   if(ui.twinView){
     twin.view=ui.twinView;
     document.querySelectorAll(".twin-btn[data-view3d]").forEach(b=>b.classList.toggle("active",b.dataset.view3d===twin.view));
+    if(window.CineTwinSetView) window.CineTwinSetView(twin.view);   // [p3.5] 카메라에도 실제 적용
   }
   requestAnimationFrame(()=>{ updateLoweredPanelTop(); resize(); });
 }
@@ -3947,8 +3948,13 @@ function applyJoint(joint, rawValue){
   });
 }
 
-// 추종 소스별 축 값: 물리위치(motorhead)는 pose 기반(마커/SYNC 임시 FLT 이동 반영), 저작경로는 플레이헤드 시간 기반
+// 추종 소스별 축 값: 물리위치(motorhead)는 pose 기반(마커/SYNC 임시 FLT 이동 반영), 저작경로는 플레이헤드 시간 기반.
+// [p3.5] 비활성 축(PTZF 미선택)은 양 모드 공통 "홀드된 물리 pose" — v3.0 스펙(비활성 축은
+// 물리 이동 제외)과 정합. 기존엔 저작경로 분기가 곡선값을 반환해, SYNC 완료 후에도 두
+// 추종 모드의 3D 포즈·게이지가 서로 다르게 보이는 불일치가 있었다.
 function axisValueAt(RTW, axisKey){
+  if(RTW.state && RTW.state.visibleAxes && !RTW.state.visibleAxes[axisKey])
+    return (RTW.motor && RTW.motor.pose[axisKey]) || 0;
   if(RTW.twin && RTW.twin.follow === 'motorhead' && RTW.motorPoseValue) return RTW.motorPoseValue(axisKey);
   const profile = RTW.motionProfiles[axisKey];
   return profile ? RTW.degAt(profile.position, RTW.play.t) : 0;
@@ -4080,6 +4086,8 @@ function setView(name){
 document.querySelectorAll('.twin-btn[data-view3d]').forEach(btn => {
   btn.addEventListener('click', () => setView(btn.dataset.view3d));
 });
+// [p3.5] 세션 복원 등 외부에서 시점 프리셋을 실제 카메라에 적용할 수 있게 노출
+window.CineTwinSetView = setView;
 
 // ---------- 렌더 루프 (유휴 렌더 스킵) ----------
 // 카메라 조작·축 값 변화·리사이즈가 없는 프레임은 WebGL 렌더를 생략한다.
